@@ -1,1 +1,500 @@
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <stdio.h>
+#include <string>
+#include <conio.h>
+#include <iostream>
+#include <windows.h>
+
+
+const int width = 600, height = 800;
+
+class LTexture {
+
+public:
+    LTexture();
+    ~LTexture();
+
+    bool loadFromFile(std::string path);
+
+    void free();
+
+    void render(int x, int y);
+
+    int getWidth();
+    int getHeight();
+
+private:
+    SDL_Texture* mTexture;
+    int mWidth;
+    int mHeight;
+};
+
+bool init();
+
+bool loadMedia();
+
+void close();
+
+SDL_Window* window = NULL;
+SDL_Renderer* renderer = NULL;
+
+
+
+
+LTexture marioLEFT;
+LTexture marioRIGHT;
+LTexture marioCOIN;
+
+
+LTexture unicornRIGHT;
+LTexture unicornLEFT;
+LTexture background;
+LTexture youWin;
+
+
+
+
+
+
+LTexture::LTexture(){
+
+    mTexture = NULL;
+    mWidth = 0;
+    mHeight = 0;
+}
+LTexture::~LTexture(){
+
+    free();
+}
+
+
+
+
+
+
+bool LTexture::loadFromFile(std::string path){
+
+    free();
+   // SDL_Texture* newTexture = NULL;
+
+    SDL_Surface* loadedSurface = IMG_Load(path.c_str());
+    if(loadedSurface == NULL)
+    {
+        printf("IMAGE LOAD ERR %s SDL err: %s\n\n", path.c_str(), IMG_GetError());
+    }else{
+            SDL_SetColorKey(loadedSurface,SDL_TRUE,SDL_MapRGB(loadedSurface->format,0,0xFF,0xFF));
+
+            mTexture= SDL_CreateTextureFromSurface(renderer, loadedSurface);
+                if(mTexture == NULL)
+                {
+                    printf("SURFACE CONVERSION ERR %s SDL_err: %s\n\n", path.c_str(), SDL_GetError());
+                }else{mWidth = loadedSurface->w; mHeight = loadedSurface->h;
+                    }
+
+            SDL_FreeSurface(loadedSurface);
+
+        }//else line63
+
+//mTexture = newTexture;
+return mTexture != NULL;
+}
+
+
+
+void LTexture::free(){
+
+    SDL_DestroyTexture(mTexture);
+    mTexture = NULL;
+    mWidth = 0;
+    mHeight = 0;
+}
+
+
+
+
+
+void LTexture::render(int x,int y){
+
+    SDL_Rect renderQuad = {x, y, mWidth, mHeight};
+    SDL_RenderCopy(renderer,mTexture,NULL,&renderQuad);
+}
+
+
+
+
+
+int LTexture::getWidth(){return mWidth;}
+int LTexture::getHeight(){return mHeight;}
+
+
+
+
+
+
+
+bool init(){
+
+    bool success = true;
+
+    if(SDL_Init(SDL_INIT_VIDEO)<0){
+        printf("!!!!INITIALIZATION FAILURE!!!! SDL_err: %s\n\n", SDL_GetError());
+        success = false;
+    }else{
+            if(!SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,"1")){
+                printf("Linear Texture Filter Err %s\n\n", SDL_GetError());
+            }
+
+        window = SDL_CreateWindow("Super Mario Hoop",  SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,
+                                        width,  height,  SDL_WINDOW_SHOWN);
+
+                if(window == NULL)
+                {
+                    printf("Window Could Not Create SDL_err %s\n\n", SDL_GetError());
+                }else{
+                        renderer = SDL_CreateRenderer(window,-1,SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);
+                            if(renderer == NULL)
+                            {
+                                printf("RENDERER CREATION ERR SDL_err %s\n\n", SDL_GetError());
+                                success = false;
+                            }else{
+                                SDL_SetRenderDrawColor(renderer,0xFF,0xFF,0xFF,0xFF);
+
+                                int imgFlags = IMG_INIT_PNG;
+                                    if(!(IMG_Init(imgFlags)&imgFlags))
+                                    {
+                                        printf("SDL_image initialization err %s\n\n", SDL_GetError());
+                                        success = false;
+                                    }
+
+
+                            }
+
+
+
+                }
+
+
+    }//else line105
+
+return success;
+}//init
+
+
+
+
+
+bool loadMedia(){
+
+    bool success = true;
+
+  /*  if(!unicornRIGHT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/moving image on background - Copy - Copy/unicorn_default.png"))
+    {
+        printf("unicorn texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+    if(!unicornLEFT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/moving image on background - Copy - Copy/unicorn_LEFT.png"))
+    {
+        printf("unicorn texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }*/
+
+    if(!marioRIGHT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/moving image on background - Copy - Copy/images/marioRIGHT.png"))
+    {
+        printf("marioright %s\n\n", SDL_GetError());
+        success = false;
+    }
+    if(!marioLEFT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/moving image on background - Copy - Copy/images/marioLEFT.png"))
+    {
+        printf("marioright %s\n\n", SDL_GetError());
+        success = false;
+    }
+    if(!marioCOIN.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/moving image on background - Copy - Copy/images/marioCOIN.png"))
+    {
+        printf("marioright %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+
+
+
+     if(!youWin.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/moving image on background - Copy - Copy/images/youWin.png"))
+    {
+        printf("youwin image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+
+
+    if(!background.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/moving image on background - Copy - Copy/images/background.png"))
+    {
+        printf("background image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+
+return success;
+}
+
+
+
+
+
+void close(){
+
+    unicornRIGHT.free();
+    unicornLEFT.free();
+    background.free();
+
+    SDL_DestroyRenderer(renderer);   renderer = NULL;
+    SDL_DestroyWindow(window);       window = NULL;
+
+IMG_Quit();
+SDL_Quit();
+}
+
+
+
+
+
+
+
+
+
+
+
+int main(int argc, char* args[]){
+
+if(!init())
+{
+    printf("main initialization fail\n\n");
+}else{
+
+
+    int leftRight = 60;
+    int leftRightCoin = 60;
+    int bowserPosX = 20;
+    int bowserPosY = 20;
+    int upDown = 620;
+    int shot = 700;
+    int goalL = 278, goalR = 358;
+
+    enum direction {STOP = 0, RIGHT = 1, LEFT = 2, UP = 3, DOWN = 4};
+    direction dir = RIGHT;
+    enum action {SHOOT = 5 , HIT = 6, RESET = 10};
+    action act = RESET;
+    int score = 0;
+
+
+
+
+        if(!loadMedia())
+        {
+            printf("main mediaLoad fail\n\n");
+        }else{
+            bool quit = false;
+            SDL_Event e;
+
+
+            while(!quit)
+            {
+               if(leftRight > 500)dir = LEFT;
+               if(leftRight < 0)dir = RIGHT;
+                while(SDL_PollEvent(&e)!=0)
+                {
+                    if(e.type == SDL_QUIT){quit = true;}
+                    else if(e.type == SDL_KEYDOWN){
+                        switch(e.key.keysym.sym)
+                        {
+                       /* case SDLK_g:
+                            dir = RIGHT;
+                            break;
+                            case SDLK_s:
+                            dir = STOP;*/
+                            case SDLK_SPACE:
+                            act = SHOOT;
+                            break;
+
+
+                        }
+                    }
+
+
+
+
+                }//event while
+
+
+                SDL_SetRenderDrawColor(renderer,0xFF,0xFF,0xFF,0xFF);
+                SDL_RenderClear(renderer);
+
+                background.render(0,0);
+
+                //system("cls");
+                std::cout << "SCORE: " << score << std::endl;
+
+
+                /*if(act == SHOOT){marioCOIN.render(leftRightCoin, shot);shot -=2;}
+                if(act == SHOOT1){marioCOIN.render(leftRightCoin, shot);shot-=2;}
+                if(act == SHOOT2){marioCOIN.render(leftRightCoin, shot);shot-=2;}
+                if(act == SHOOT3){marioCOIN.render(leftRightCoin, shot);shot-=2;}
+                if(act == SHOOT4){marioCOIN.render(leftRightCoin, shot);shot-=2;}*/
+
+                    int player = marioRIGHT.getHeight();
+
+
+
+                        if(act == SHOOT){
+
+                            shot -=11; if(shot < 0) act=RESET;
+                        if(shot < 0 && leftRightCoin > 270 && leftRightCoin < 333)
+                            {PlaySound(TEXT("scoreUp.wav"),NULL, SND_FILENAME|SND_ASYNC);
+                            score = score+10;
+                         }}
+
+                         if(shot > 0 && shot < 20 && leftRightCoin <= 269){PlaySound(TEXT("notGoal - Copy.wav"),NULL, SND_FILENAME|SND_ASYNC);score = 0;}
+                         if(shot > 0 && shot < 20 && leftRightCoin >= 334){PlaySound(TEXT("notGoal - Copy.wav"),NULL, SND_FILENAME|SND_ASYNC);score = 0;}
+
+
+
+
+
+                        if(act == RESET){shot = upDown +100; leftRightCoin = leftRight;}
+
+
+
+
+                    if(dir == STOP){marioRIGHT.render(leftRight,upDown);}
+
+                    //RENDERING
+                if(score <=20){
+
+                    if(dir == RIGHT && act == RESET){
+                        leftRight+=4;
+                        leftRightCoin+=4;
+                        marioRIGHT.render(leftRight,upDown);
+                        marioCOIN.render(leftRightCoin,shot);}
+
+                        if(dir == RIGHT && act == SHOOT ){
+                        leftRight +=4;
+                        marioRIGHT.render(leftRight,upDown);marioCOIN.render(leftRightCoin,shot);}
+
+                    if(dir == LEFT && act == RESET){
+                         leftRight-=4;
+                        leftRightCoin-=4;
+                        marioLEFT.render(leftRight,upDown);
+                        marioCOIN.render(leftRightCoin,shot);}
+
+                         if(dir == LEFT && act == SHOOT ){
+                        leftRight -=4;
+                        marioLEFT.render(leftRight,upDown);marioCOIN.render(leftRightCoin,shot);}
+                }
+
+                if(score>20 && score <=40){
+                     if(dir == RIGHT && act == RESET ){
+                        leftRight+=6;
+                        leftRightCoin+=6;
+                        marioRIGHT.render(leftRight,upDown);
+                        marioCOIN.render(leftRightCoin,shot);}
+
+                        if(dir == RIGHT && act == SHOOT ){
+                        leftRight +=6;
+                        marioRIGHT.render(leftRight,upDown);marioCOIN.render(leftRightCoin,shot);}
+
+                    if(dir == LEFT && act == RESET){
+                         leftRight-=6;
+                        leftRightCoin-=6;
+                        marioLEFT.render(leftRight,upDown);
+                        marioCOIN.render(leftRightCoin,shot);}
+
+                         if(dir == LEFT && act == SHOOT ){
+                        leftRight -=6;
+                        marioLEFT.render(leftRight,upDown);marioCOIN.render(leftRightCoin,shot);}
+
+                }
+
+                 if(score>40 && score <=60){
+                     if(dir == RIGHT && act == RESET ){
+                        leftRight+=8;
+                        leftRightCoin+=8;
+                        marioRIGHT.render(leftRight,upDown);
+                        marioCOIN.render(leftRightCoin,shot);}
+
+                        if(dir == RIGHT && act == SHOOT ){
+                        leftRight +=8;
+                        marioRIGHT.render(leftRight,upDown);marioCOIN.render(leftRightCoin,shot);}
+
+                    if(dir == LEFT && act == RESET){
+                         leftRight-=8;
+                        leftRightCoin-=8;
+                        marioRIGHT.render(leftRight,upDown);
+                        marioCOIN.render(leftRightCoin,shot);}
+
+                         if(dir == LEFT && act == SHOOT ){
+                        leftRight -=8;
+                        marioRIGHT.render(leftRight,upDown);marioCOIN.render(leftRightCoin,shot);}
+
+                }
+
+                 if(score>60 && score <=90){
+                     if(dir == RIGHT && act == RESET ){
+                        leftRight+=10;
+                        leftRightCoin+=10;
+                        marioRIGHT.render(leftRight,upDown);
+                        marioCOIN.render(leftRightCoin,shot);}
+
+                        if(dir == RIGHT && act == SHOOT ){
+                        leftRight +=10;
+                        marioRIGHT.render(leftRight,upDown);marioCOIN.render(leftRightCoin,shot);}
+
+                    if(dir == LEFT && act == RESET){
+                         leftRight-=10;
+                        leftRightCoin-=10;
+                        marioRIGHT.render(leftRight,upDown);
+                        marioCOIN.render(leftRightCoin,shot);}
+
+                         if(dir == LEFT && act == SHOOT ){
+                        leftRight -=10;
+                        marioRIGHT.render(leftRight,upDown);marioCOIN.render(leftRightCoin,shot);}
+
+                }
+
+                if(score == 100){youWin.render(0,0);}
+
+
+
+                    if(dir == UP){
+                        upDown-=3;
+                        marioLEFT.render(leftRight,upDown);
+                        marioCOIN.render(leftRight,upDown+100);
+                        SDL_Delay(0);}
+
+                    if(dir == DOWN){
+                        upDown+=3;
+                        marioLEFT.render(leftRight,upDown);
+                        marioCOIN.render(leftRight,upDown+100);
+                        SDL_Delay(0);}
+
+
+
+
+
+                        SDL_RenderPresent(renderer);
+
+
+
+
+
+
+
+            }//main while
+
+        }//media else
+
+    }//init else
+
+close();
+return 0;
+}//main
+
 
