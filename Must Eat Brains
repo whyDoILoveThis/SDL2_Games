@@ -1,0 +1,645 @@
+#include "Its.h"
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_mixer.h>
+#include <stdio.h>
+#include <string>
+#include <conio.h>
+#include <iostream>
+#include <windows.h>
+#include <ctime>
+
+// SDL WINDOW
+const int width = 1280, height = 720;
+SDL_Window* window = NULL;
+SDL_Renderer* renderer = NULL;
+
+//SDL TEXTURE HANDLEING
+class LTexture {
+
+    public:
+        LTexture();
+        ~LTexture();
+
+        void free();
+
+        bool loadFromFile(std::string path);
+        void render(int x, int y);
+        void renderSpecific(int x, int y, int w, int h);
+
+    private:
+        SDL_Texture* mTexture;
+        int mWidth;
+        int mHeight;
+};
+
+//SET POSITIONS
+
+
+//EVENT HANDLEING
+//input
+SDL_Event e;
+bool quit = false;
+void handleUserInputinput();
+bool press = false;
+
+//moving player
+void movePlayer();
+bool STOP, LEFT, UPLEFT, DOWNLEFT, RIGHT, UPRIGHT, DOWNRIGHT, UP, DOWN;
+enum speed {verySlow = 1, slow = 2, medium = 3, kindaFast = 4, fast = 5, veryFast = 6, supersonic = 10};
+speed playerSpeed = kindaFast;
+
+//moving enemy
+
+//shooting
+void shoot();
+
+
+
+
+//collision
+void collisionDetection();
+
+
+
+//MY SDL FUNCTIONS
+//ItsGameSetup
+bool init();
+bool loadMedia();
+void setPos();
+bool resetPlayer = false;
+void close();
+
+
+//      TEXTURES
+
+// main background texture
+LTexture groundT;
+
+
+//PLAYER  PLAYER  PLAYER  PLAYER
+//texture
+LTexture playerT;
+void renderPlayer();
+//pos and size
+int plX, plY, plW, plH;
+
+
+//BULLET  BULLET  BULLET  BULLET
+
+//texture
+LTexture bulletT;
+void renderBullet();
+const int clipSize = 30;
+int bulletsInClip = 30;
+bool shotFired[clipSize] = {};
+int bulVel = 10;
+bool triggerPulled = false, pew = false;
+//pos
+int bulX[clipSize];
+int bulY[clipSize];
+
+
+
+//ENEMY  ENEMY  ENEMY  ENEMY
+
+//texture
+
+LTexture enemyT;
+//posistion
+
+
+
+
+//      SOUNDS
+
+Mix_Chunk* ak_47 = NULL;
+Mix_Chunk* reload = NULL;
+Mix_Chunk* emptyMag = NULL;
+Mix_Chunk* enemyDie = NULL;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//  SDL2 TEXTURE HANDLING   SDL2 TEXTURE HANDLING   SDL2 TEXTURE HANDLING   SDL2 TEXTURE HANDLING
+
+//constructor & deconstructor
+LTexture::LTexture(){
+
+    mTexture = NULL;
+    mWidth = 0;
+    mHeight = 0;
+}
+LTexture::~LTexture(){
+
+    free();
+}
+
+//loads via file-path and transparent background
+bool LTexture::loadFromFile(std::string path){
+
+    free();
+
+    SDL_Surface* loadedSurface = IMG_Load(path.c_str());
+    if(loadedSurface == NULL)
+    {
+        printf("IMAGE LOAD ERR %s SDL err: %s\n\n", path.c_str(), IMG_GetError());
+    }else{
+            SDL_SetColorKey(loadedSurface,SDL_TRUE,SDL_MapRGB(loadedSurface->format,0,0xFF,0xFF));
+
+            mTexture= SDL_CreateTextureFromSurface(renderer, loadedSurface);
+                if(mTexture == NULL)
+                {
+                    printf("SURFACE CONVERSION ERR %s SDL_err: %s\n\n", path.c_str(), SDL_GetError());
+                }else{mWidth = loadedSurface->w; mHeight = loadedSurface->h;
+                    }
+
+            SDL_FreeSurface(loadedSurface);
+
+        }
+
+        return mTexture != NULL;
+}//loads via file-path and transparent background
+
+//empties texture
+void LTexture::free(){
+
+    SDL_DestroyTexture(mTexture);
+    mTexture = NULL;
+    mWidth = 0;
+    mHeight = 0;
+}
+
+//render texture as its original size
+void LTexture::render(int x, int y){
+
+    SDL_Rect renderQuad = {x, y, mWidth, mHeight};
+    SDL_RenderCopy(renderer,mTexture,NULL,&renderQuad);
+}
+//render as specified size
+void LTexture::renderSpecific(int x, int y, int w, int h){
+
+    SDL_Rect renderQuad = {x, y, w, h};
+    SDL_RenderCopy(renderer,mTexture,NULL,&renderQuad);
+}
+
+//  SDL2 TEXTURE HANDLING   SDL2 TEXTURE HANDLING   SDL2 TEXTURE HANDLING   SDL2 TEXTURE HANDLING
+
+
+
+
+
+
+
+
+
+//  MY SDL FUNCTIONS    MY SDL FUNCTIONS    MY SDL FUNCTIONS    MY SDL FUNCTIONS
+
+//initialize SDL video & audio, create window, create renderer, set drawColor, initialize PNG loading, & audio
+bool init(){
+    bool success = true;
+    //SDL init SDL audio init
+    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)<0){
+        printf("!!!!INITIALIZATION FAILURE!!!! SDL_err: %s\n\n", SDL_GetError());
+        success = false;
+    }else{
+            if(!SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,"1")){
+                printf("Linear Texture Filter Err %s\n\n", SDL_GetError());
+            }
+        //create WINDOW
+        window = SDL_CreateWindow("Must Eat Brains!",  SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,
+                                        width,  height,  SDL_WINDOW_SHOWN);
+
+                if(window == NULL)
+                {
+                    printf("Window Could Not Create SDL_err %s\n\n", SDL_GetError());
+                }else{
+        //create RENDERER
+        renderer = SDL_CreateRenderer(window,-1,SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);
+                if(renderer == NULL){
+                    printf("RENDERER CREATION ERR SDL_err %s\n\n", SDL_GetError());
+                    success = false;
+                }else{
+        //set draw-color
+        SDL_SetRenderDrawColor(renderer,0xFF,0xFF,0xFF,0xFF);
+
+        //PNG init
+        int imgFlags = IMG_INIT_PNG;
+                if(!(IMG_Init(imgFlags)&imgFlags)){
+                    printf("SDL_image initialization err %s\n\n", SDL_GetError());
+                    success = false;
+                }//png
+        // AUDIO init
+         if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT,2, 2048)<0){
+                                        printf("mixer not init %s\n\n", Mix_GetError());
+                                    }
+                                   // Mix_AllocateChannels();
+
+
+                      }//render else
+
+
+
+                    }//window else
+
+
+          }//init else
+
+    return success;
+}  //initialize SDL, create window, create renderer, set drawColor, & initialize PNG loading
+
+
+
+//LOAD MEDIA FILE PATHS
+bool loadMedia(){
+
+    bool success = true;
+
+//SOUNDS
+          ak_47 = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Must Eat Brains/media/sounds/ak-47.wav");
+        if(ak_47 == NULL){
+            printf("ak-47 sound err %s\n\n", Mix_GetError());
+        }
+        enemyDie = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Must Eat Brains/media/sounds/enemyDie.wav");
+        if(enemyDie == NULL){
+            printf("enemyDie sound err %s\n\n", Mix_GetError());
+        }
+         reload = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Must Eat Brains/media/sounds/reload.wav");
+        if(reload == NULL){
+            printf("relaod sound err %s\n\n", Mix_GetError());
+        }
+         emptyMag = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Must Eat Brains/media/sounds/emptyMag.wav");
+        if(emptyMag == NULL){
+            printf("emptyMag sound err %s\n\n", Mix_GetError());
+        }
+
+// TEXTURES
+     if(!playerT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Eat Brains/media/textures/player.png"))
+    {
+        printf("player texture !load %s\n\n", SDL_GetError());
+        success = false;
+    }
+    if(!bulletT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Eat Brains/media/textures/bullet.png"))
+    {
+        printf("bullet texture !load %s\n\n", SDL_GetError());
+        success = false;
+    }
+    if(!groundT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Eat Brains/media/textures/ground.png"))
+    {
+        printf("ground texture !load %s\n\n", SDL_GetError());
+        success = false;
+    }
+    if(!enemyT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Eat Brains/media/textures/enemy.png"))
+    {
+        printf("enemy texture !load %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+
+
+
+  return success;
+}  //load up the media
+
+
+// SET START POSITIONS
+void setPos(){
+    //player
+    if(resetPlayer){bulletsInClip = 30;
+                    plX = 40; plY = height/2;
+                    resetPlayer = false;}
+
+    //bullets
+    for(int b = 0; b <= clipSize; b++){
+    if(!shotFired[b]){
+            bulX[b] = plX;
+            bulY[b] = plY;}
+    }
+}
+
+
+//free all textures, destroy window and renderer, quit sdl and image.
+void close(){
+
+
+
+    SDL_DestroyRenderer(renderer);   renderer = NULL;
+    SDL_DestroyWindow(window);       window = NULL;
+
+IMG_Quit();
+SDL_Quit();
+}
+
+//  MY SDL FUNCTIONS    MY SDL FUNCTIONS    MY SDL FUNCTIONS    MY SDL FUNCTIONS
+
+
+
+
+
+
+
+
+//  MY GAME FUNCTIONS   MY GAME FUNCTIONS   MY GAME FUNCTIONS   MY GAME FUNCTIONS
+
+//handling user input
+void handleUserInput(){
+   /* const Uint8* keystate = SDL_GetKeyboardState(NULL);
+    if(keystate[SDL_SCANCODE_RETURN]){rendBullet = true;}*/
+
+     while(SDL_PollEvent(&e)!=0)
+                {
+                    if(e.type == SDL_QUIT){quit = true;}
+
+
+
+
+
+
+                    else if(e.type == SDL_KEYDOWN){
+                        switch(e.key.keysym.sym)
+                        {
+
+                        // LEFT
+                        case SDLK_a:
+                            LEFT = true;
+                            break;
+                        // RIGHT
+                        case SDLK_d:
+                            RIGHT = true;
+                            break;
+                        // UP
+                        case SDLK_w:
+                            UP = true;
+                            break;
+                        // DOWN
+                        case SDLK_s:
+                            DOWN = true;
+                            break;
+                        // SHOOT
+                        case SDLK_RETURN:
+                            triggerPulled = true;
+                            break;
+                        case SDLK_r:
+                            if(bulletsInClip <= 0){
+                            Mix_PlayChannel(7, reload, 0);
+                            bulletsInClip = 30;}
+                            break;
+
+
+                        }//switch
+                    }//else if keydown
+
+
+
+
+                    else if(e.type == SDL_KEYUP){
+                        switch(e.key.keysym.sym)
+                        {
+
+                        // LEFT
+                        case SDLK_a:
+                            LEFT = false;
+                            break;
+                        // RIGHT
+                        case SDLK_d:
+                            RIGHT = false;
+                            break;
+                        // UP
+                        case SDLK_w:
+                            UP = false;
+                            break;
+                        // DOWN
+                        case SDLK_s:
+                            DOWN = false;
+                            break;
+                        // SHOOT
+                        case SDLK_RETURN:
+                            triggerPulled = false;
+                            break;
+
+
+                        }//switch
+                    }//else if key up
+
+
+
+}//while pollevent
+
+movePlayer();
+
+}
+ //handling user input
+
+//moving PLAYER
+void movePlayer(){
+
+      if(RIGHT){plX += playerSpeed;}
+      if(LEFT){plX -= playerSpeed;}
+      if(UP){plY -=playerSpeed;}
+      if(DOWN){plY +=playerSpeed;}
+}
+
+//render PLAYER
+void renderPlayer(){
+    playerT.render(plX,plY);
+}
+
+void its_check_for_errors(int iteration){
+
+   // SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE),{0,0});
+    std::cout << "iteration:" << iteration << "      " << std::endl;
+   // std::cout << "current:" << currentBullet << "      " << std::endl;
+
+
+    if(triggerPulled){std::cout << "triggerPulled" << " = true                  " << std::endl;}
+    else{std::cout << "trigger = false                      " << std::endl;}
+    if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[0] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[0] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[1] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[1] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[2] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[2] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[3] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[3] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[4] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[4] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[5] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[5] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[6] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[6] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[7] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[7] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[8] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[8] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[9] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[9] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[10] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[10] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[11] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[11] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[12] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[12] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[13] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[13] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[14] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[14] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[15] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[15] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[16] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[16] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[17] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[17] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[18] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[18] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[19] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[19] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[20] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[20] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[21] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[21] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[22] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[22] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[23] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[23] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[24] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[24] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[25] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[25] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[26] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[26] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[27] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[27] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[28] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[28] << "]" << " = false                         " << std::endl;}
+        if(shotFired[iteration]){std::cout << "shotFired[" << shotFired[29] << "]" << " = true                   " << std::endl;}
+        else{std::cout << "shotFired[" << shotFired[29] << "]" << " = false                         " << std::endl;}
+
+    std::cout << "in clip:" << bulletsInClip << "       " <<std::endl;
+
+
+
+}
+
+
+// shoot bullets
+void shoot(){
+        if(triggerPulled && bulletsInClip <=0){Mix_PlayChannel(3, emptyMag, 0);}
+
+    for(int b = 0; b<clipSize; b++)
+    {
+    its_check_for_errors(b);
+        if(triggerPulled && bulletsInClip >0 ){ shotFired[b] = true; bulletsInClip--; triggerPulled = false;}
+     if(bulX[b] < plX+plW+bulVel && shotFired[b]){Mix_PlayChannel(1,ak_47,0);}
+     if(shotFired[b]){bulletT.render(bulX[b],bulY[b]); bulX[b]+=bulVel;}
+    if(bulX[b]>width){bulX[b] = plX; shotFired[b] = false;}
+    }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//RETURN RAND NUM FROM SPECIFIED SET
+int randPOS()
+{
+    srand(time(0));  // seed the random number generator with the current time
+    int nums[] = {75, 204, 320, 467, 560};//SPECIFY SET
+    static int last_index = -1;  // initialize the last index to an invalid value
+    int index;
+    do {
+        index = rand() % 5;  // get a random index between 0 and 4
+    } while (index == last_index);  // loop until a different index is chosen
+    last_index = index;  // update the last index to the current index
+    return nums[index];
+}
+
+
+
+
+
+
+
+//MAIN   MAIN    MAIN    MAIN    MAIN    MAIN   MAIN    MAIN    MAIN    MAIN    MAIN    MAIN    MAIN    MAIN
+int main(int argc, char* args[]){
+resetPlayer = true;
+
+//init SDL
+if(!init())
+{
+    printf("main initialization fail\n\n");
+}else{
+        //load the media
+        if(!loadMedia())
+        {
+            printf("main mediaLoad fail\n\n");
+        }else{
+
+
+            //start game
+            while(!quit)
+            {
+               // SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE),{0,0});
+             //  system("cls");
+            //   std::cout<<bulletsInClip<<std::endl;
+
+            handleUserInput();
+
+
+
+
+
+                //RENDERING
+                SDL_SetRenderDrawColor(renderer,0xFF,0xFF,0xFF,0xFF);
+                SDL_RenderClear(renderer);
+
+                //things to render
+                groundT.render(0,0);
+            setPos();
+            shoot();
+
+
+                renderPlayer();
+
+
+
+
+                        SDL_RenderPresent(renderer);
+
+
+
+
+
+
+
+            }//main while
+
+        }//media else
+
+    }//init else
+
+
+close();
+return 0;
+}//main
+
