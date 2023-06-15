@@ -1,0 +1,306 @@
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <stdio.h>
+#include <string>
+#include <conio.h>
+
+
+const int width = 640, height = 480;
+
+class LTexture {
+
+public:
+    LTexture();
+    ~LTexture();
+
+    bool loadFromFile(std::string path);
+
+    void free();
+
+    void render(int x, int y);
+
+    int getWidth();
+    int getHeight();
+
+private:
+    SDL_Texture* mTexture;
+    int mWidth;
+    int mHeight;
+};
+
+bool init();
+
+bool loadMedia();
+
+void close();
+
+SDL_Window* window = NULL;
+SDL_Renderer* renderer = NULL;
+
+
+
+
+
+LTexture unicornRIGHT;
+LTexture unicornLEFT;
+LTexture background;
+
+
+
+
+
+
+LTexture::LTexture(){
+
+    mTexture = NULL;
+    mWidth = 0;
+    mHeight = 0;
+}
+LTexture::~LTexture(){
+
+    free();
+}
+
+
+
+
+
+
+bool LTexture::loadFromFile(std::string path){
+
+    free();
+    SDL_Texture* newTexture = NULL;
+
+    SDL_Surface* loadedSurface = IMG_Load(path.c_str());
+    if(loadedSurface == NULL)
+    {
+        printf("IMAGE LOAD ERR %s SDL err: %s\n\n", path.c_str(), IMG_GetError());
+    }else{
+            SDL_SetColorKey(loadedSurface,SDL_TRUE,SDL_MapRGB(loadedSurface->format,0,0xFF,0xFF));
+
+            newTexture= SDL_CreateTextureFromSurface(renderer, loadedSurface);
+                if(newTexture == NULL)
+                {
+                    printf("SURFACE CONVERSION ERR %s SDL_err: %s\n\n", path.c_str(), SDL_GetError());
+                }else{mWidth = loadedSurface->w; mHeight = loadedSurface->h;
+                    }
+
+            SDL_FreeSurface(loadedSurface);
+
+        }//else line63
+
+mTexture = newTexture;
+return mTexture != NULL;
+}
+
+
+
+void LTexture::free(){
+
+    SDL_DestroyTexture(mTexture);
+    mTexture = NULL;
+    mWidth = 0;
+    mHeight = 0;
+}
+
+
+
+
+
+void LTexture::render(int x,int y){
+
+    SDL_Rect renderQuad = {x, y, mWidth, mHeight};
+    SDL_RenderCopy(renderer,mTexture,NULL,&renderQuad);
+}
+
+
+
+
+
+//int LTexture::getWidth(){return mWidth;}
+//int LTexture::getHeight(){return mHeight;}
+
+
+
+
+
+
+
+bool init(){
+
+    bool success = true;
+
+    if(SDL_Init(SDL_INIT_VIDEO)<0){
+        printf("!!!!INITIALIZATION FAILURE!!!! SDL_err: %s\n\n", SDL_GetError());
+        success = false;
+    }else{
+            if(!SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,"1")){
+                printf("Linear Texture Filter Err %s\n\n", SDL_GetError());
+            }
+
+        window = SDL_CreateWindow("Kayte's Unicorn Game",  SDL_WINDOWPOS_CENTERED  ,SDL_WINDOWPOS_CENTERED,
+                                        width,  height,  SDL_WINDOW_SHOWN);
+
+                if(window == NULL)
+                {
+                    printf("Window Could Not Create SDL_err %s\n\n", SDL_GetError());
+                }else{
+                        renderer = SDL_CreateRenderer(window,-1,SDL_RENDERER_ACCELERATED);
+                            if(renderer == NULL)
+                            {
+                                printf("RENDERER CREATION ERR SDL_err %s\n\n", SDL_GetError());
+                                success = false;
+                            }else{
+                                SDL_SetRenderDrawColor(renderer,0xFF,0xFF,0xFF,0xFF);
+
+                                int imgFlags = IMG_INIT_PNG;
+                                    if(!(IMG_Init(imgFlags)&imgFlags))
+                                    {
+                                        printf("SDL_image initialization err %s\n\n", SDL_GetError());
+                                        success = false;
+                                    }
+
+
+                            }
+
+
+
+                }
+
+
+    }//else line105
+
+return success;
+}//init
+
+
+
+
+
+bool loadMedia(){
+
+    bool success = true;
+
+    if(!unicornRIGHT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/sdl2 moving my image/images/unicorn_defaultPNG.png"))
+    {
+        printf("unicorn texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+    if(!unicornLEFT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/sdl2 moving my image/images/unicorn_LEFTPNG.png"))
+    {
+        printf("unicorn texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+    if(!background.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/sdl2 moving my image/images/background.png"))
+    {
+        printf("background image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+
+return success;
+}
+
+
+
+
+
+void close(){
+
+    unicornRIGHT.free();
+    unicornLEFT.free();
+    background.free();
+
+    SDL_DestroyRenderer(renderer);   renderer = NULL;
+    SDL_DestroyWindow(window);       window = NULL;
+
+IMG_Quit();
+SDL_Quit();
+}
+
+
+
+
+
+
+
+
+
+
+
+int main(int argc, char* args[]){
+
+if(!init())
+{
+    printf("main initialization fail\n\n");
+}else{
+
+
+    int foward = 50;
+    int direction = 1;
+
+
+
+        if(!loadMedia())
+        {
+            printf("main mediaLoad fail\n\n");
+        }else{
+            bool quit = false;
+            SDL_Event e;
+
+
+            while(!quit)
+            {
+                if(foward > 670)foward=-40;
+                if(foward < -40){foward = 670;}
+                while(SDL_PollEvent(&e)!=0)
+                {
+                    if(e.type == SDL_QUIT){quit = true;}
+                    else if(e.type == SDL_KEYDOWN){
+                        switch(e.key.keysym.sym)
+                        {
+                        case SDLK_d:
+                            foward += 40;
+                            direction = 1;
+                            break;
+                            case SDLK_a:
+                            foward -= 40;
+                            direction = 2;
+                            break;
+                        }
+                    }
+
+
+
+
+                }//event while
+
+
+                SDL_SetRenderDrawColor(renderer,0xFF,0xFF,0xFF,0xFF);
+                SDL_RenderClear(renderer);
+
+                background.render(0,0);
+
+                    if(direction == 1){
+                        unicornRIGHT.render(foward,286);}
+                        else if(direction == 2){unicornLEFT.render(foward,286);}
+
+
+                        SDL_RenderPresent(renderer);
+
+
+
+
+
+
+            }//main while
+
+        }//media else
+
+    }//init else
+
+close();
+return 0;
+}//main
+
