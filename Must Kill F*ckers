@@ -1,0 +1,907 @@
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_mixer.h>
+#include <stdio.h>
+#include <string>
+#include <cmath>
+#include <conio.h>
+#include <iostream>
+#include <ctime>
+#include <windows.h>
+
+using namespace std;
+
+const int width = 1300, height = 650;
+
+class LTexture {
+
+public:
+    LTexture();
+    ~LTexture();
+
+    bool loadFromFile(std::string path);
+    bool loadFromRenderedText(std::string text, SDL_Color textColor);
+
+    void free();
+
+    void render(int x, int y);
+    void renderWidth(int x, int y, int w);
+
+    int getWidth();
+    int getHeight();
+
+private:
+    SDL_Texture* mTexture;
+    int mWidth;
+    int mHeight;
+};
+
+
+
+
+
+
+bool setPOS = true;
+int randPOS();
+void setupPos();
+bool init();
+bool loadMedia();
+void renderHealth();
+void renderAmmo();
+
+
+
+
+
+
+// BACKGROUND
+
+LTexture background;
+int ground = 412;
+int gravity = 7;
+
+
+
+
+
+
+// INPUT
+
+bool quit = false;
+void checkInput();
+SDL_Event keyEvent;
+void checkCollision();
+
+
+
+
+
+
+// PLAYER
+
+float health = 350;
+int barOfHealthX  = 21, barOfHealthY = 27;
+float playerHealthX = 21, playerHealthY = 27,
+        playerHealthW = 350;
+LTexture barOfHealth;
+LTexture playerHealth;
+void movePlayer();
+LTexture playerRIGHT;
+LTexture playerLEFT;
+enum direction {RIGHT = 0, LEFT = 1};
+direction plDir;
+float plX, plY, plW = 88, plH = 91;
+float plVelX = 4.6, plVelY = 18.5, plMaxJump = ground - 175;
+bool plRight = false, plLeft = false, plJump = false;
+void renderPlayer();
+
+
+
+
+
+
+// SHOOTING
+
+void shoot();
+LTexture bulletT;
+void bulletPos();
+const int CLIP_SIZE = 31;
+int bulX[CLIP_SIZE], bulY[CLIP_SIZE];
+bool rendBullet;
+bool bulFlying[CLIP_SIZE];
+direction bulDir[CLIP_SIZE];
+int bulletInChamber = 0;
+string ammo;
+LTexture theBullets;
+int theBulX = 18, theBulY = 570;
+LTexture numOfBullets;
+int numBulX = 90, numBulY = 590;
+int bulletsLeft = 0;
+
+
+
+
+
+
+
+
+// BIG FUCKER
+
+void moveBigFucker();
+void renderFucker();
+LTexture BigFuckerRIGHT;
+LTexture BigFuckerLEFT;
+direction fuckDir;
+float fuckX, fuckY, fuckW = 107, fuckH = 135;
+float fuckVelX = 3;
+bool fuckRight = false, fuckLeft = false;
+int fuckHit = 350;
+float fuckHealthW = 350, fuckHealthX = (width-fuckHealthW)-21, fuckHealthY = 27;
+
+int fuckBarX = width-fuckHealthW-21, fuckBarY = 27;
+LTexture fuckHealth;
+bool gotPlayer = false;
+
+
+
+
+
+// LITTLE FUCKER
+
+void moveFuckers();
+void renderTheFuckers();
+LTexture littleFuckerRIGHT;
+LTexture littleFuckerLEFT;
+int Ltail = 70;
+const int NUM_OF_FUCKERS = 15;
+direction LfuckerDir[NUM_OF_FUCKERS];
+float LfuckerX[NUM_OF_FUCKERS],
+      LfuckerY[NUM_OF_FUCKERS],
+      LfuckerW = 176,
+      LfuckerH = 69;
+float LfuckerVelX = 3.7;
+bool LfuckerRight = false, LfuckerLeft = false;
+int LfuckerHit[NUM_OF_FUCKERS];
+
+
+
+
+void close();
+
+
+SDL_Window* window = NULL;
+SDL_Renderer* renderer = NULL;
+TTF_Font* font = NULL;
+
+
+
+
+//      SOUNDS
+
+Mix_Chunk* ak_47 = NULL;
+Mix_Chunk* reload = NULL;
+Mix_Chunk* emptyMag = NULL;
+Mix_Chunk* enemyDie = NULL;
+
+
+
+
+
+
+LTexture::LTexture(){
+
+    mTexture = NULL;
+    mWidth = 0;
+    mHeight = 0;
+}
+LTexture::~LTexture(){
+
+    free();
+}
+
+
+
+
+
+
+bool LTexture::loadFromFile(std::string path){
+
+    free();
+    SDL_Texture* newTexture = NULL;
+
+    SDL_Surface* loadedSurface = IMG_Load(path.c_str());
+    if(loadedSurface == NULL)
+    {
+        printf("IMAGE LOAD ERR %s SDL err: %s\n\n", path.c_str(), IMG_GetError());
+    }else{
+            SDL_SetColorKey(loadedSurface,SDL_TRUE,SDL_MapRGB(loadedSurface->format,0,0xFF,0xFF));
+
+            newTexture= SDL_CreateTextureFromSurface(renderer, loadedSurface);
+                if(newTexture == NULL)
+                {
+                    printf("SURFACE CONVERSION ERR %s SDL_err: %s\n\n", path.c_str(), SDL_GetError());
+                }else{mWidth = loadedSurface->w; mHeight = loadedSurface->h;
+                    }
+
+            SDL_FreeSurface(loadedSurface);
+
+        }//else line63
+
+mTexture = newTexture;
+return mTexture != NULL;
+}
+
+
+
+
+
+
+
+bool LTexture::loadFromRenderedText(std::string text, SDL_Color textColor){
+    free();
+
+    SDL_Surface* textSurface = TTF_RenderText_Solid(font, text.c_str(), textColor);
+        if(textSurface == NULL){
+            printf("text not go %s\n\n", TTF_GetError());
+        }else{
+            mTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+            if(mTexture == NULL){
+                printf("creating text from surface failure %s\n\n", SDL_GetError());
+            }else{
+                mWidth = textSurface->w;
+                mHeight = textSurface->h;
+            }
+
+            SDL_FreeSurface(textSurface);
+
+        }
+
+    return mTexture != NULL;
+
+
+
+}
+
+
+
+
+
+
+
+
+
+void LTexture::free(){
+
+    SDL_DestroyTexture(mTexture);
+    mTexture = NULL;
+    mWidth = 0;
+    mHeight = 0;
+}
+
+
+
+
+
+void LTexture::render(int x,int y){
+
+    SDL_Rect renderQuad = {x, y, mWidth, mHeight};
+    SDL_RenderCopy(renderer,mTexture,NULL,&renderQuad);
+}
+
+
+
+
+
+void LTexture::renderWidth(int x, int y, int w){
+
+    SDL_Rect renderQuad = {x, y, w, mHeight};
+    SDL_RenderCopy(renderer, mTexture, NULL, &renderQuad);
+}
+
+
+
+//int LTexture::getWidth(){return mWidth;}
+//int LTexture::getHeight(){return mHeight;}
+
+
+
+
+
+
+
+bool init(){
+
+    bool success = true;
+
+    if(SDL_Init(SDL_INIT_VIDEO)<0){
+        printf("!!!!INITIALIZATION FAILURE!!!! SDL_err: %s\n\n", SDL_GetError());
+        success = false;
+    }else{
+            if(!SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,"1")){
+                printf("Linear Texture Filter Err %s\n\n", SDL_GetError());
+            }
+
+        window = SDL_CreateWindow("Must Kill Fuckers V0.1",  SDL_WINDOWPOS_CENTERED  ,SDL_WINDOWPOS_CENTERED,
+                                        width,  height,  SDL_WINDOW_SHOWN);
+
+                if(window == NULL)
+                {
+                    printf("Window Could Not Create SDL_err %s\n\n", SDL_GetError());
+                }else{
+                        renderer = SDL_CreateRenderer(window,-1,SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+                            if(renderer == NULL)
+                            {
+                                printf("RENDERER CREATION ERR SDL_err %s\n\n", SDL_GetError());
+                                success = false;
+                            }else{
+                                SDL_SetRenderDrawColor(renderer,0xFF,0xFF,0xFF,0xFF);
+
+                                int imgFlags = IMG_INIT_PNG;
+                                    if(!(IMG_Init(imgFlags)&imgFlags))
+                                    {
+                                        printf("SDL_image initialization err %s\n\n", SDL_GetError());
+                                        success = false;
+                                    }
+
+                                if(TTF_Init() == -1){
+                                    printf("TTF init err %s\n\n", TTF_GetError());
+                                }
+                                 // AUDIO init
+                                        if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT,2, 2048)<0){
+                                        printf("mixer not init %s\n\n", Mix_GetError());
+                                    }
+
+
+                            }
+
+
+
+                }
+
+
+    }//else line105
+
+return success;
+}//init
+
+
+
+
+
+bool loadMedia(){
+
+    bool success = true;
+//IMAGES   IMAGES   IMAGES  IMAGES  IMAGES  IMAGES
+    if(!background.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Kill Fuckers v0.1/Must Kill Fuckers v0.1/images/background.png"))
+    {
+        printf("background image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+    if(!playerRIGHT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Kill Fuckers v0.1/Must Kill Fuckers v0.1/images/playerRIGHT.png"))
+    {
+        printf("playerRIGHT texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+    if(!playerLEFT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Kill Fuckers v0.1/Must Kill Fuckers v0.1/images/playerLEFT.png"))
+    {
+        printf("playerLEFT texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+    if(!bulletT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Eat Brains/media/textures/bullet.png"))
+    {
+        printf("bullet texture !load %s\n\n", SDL_GetError());
+        success = false;
+    }
+    if(!BigFuckerLEFT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Kill Fuckers v0.1/Must Kill Fuckers v0.1/images/fuckerLEFT.png"))
+    {
+        printf("BIG fuckerLEFT texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+     if(!BigFuckerRIGHT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Kill Fuckers v0.1/Must Kill Fuckers v0.1/images/fuckerRIGHT.png"))
+    {
+        printf("BIG fuckerLEFT texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+     if(!littleFuckerRIGHT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Kill Fuckers v0.1/Must Kill Fuckers v0.1/images/littleFuckRIGHT.png"))
+    {
+        printf("LITTLE fuckerRIGHT texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+     if(!littleFuckerLEFT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Kill Fuckers v0.1/Must Kill Fuckers v0.1/images/littleFuckLEFT.png"))
+    {
+        printf("LITTLE fuckerLEFT texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+     if(!barOfHealth.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Kill Fuckers v0.1/Must Kill Fuckers v0.1/images/barOfHealth.png"))
+    {
+        printf(" HEALTH BAR texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+         if(!playerHealth.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Kill Fuckers v0.1/Must Kill Fuckers v0.1/images/playerHealth.png"))
+    {
+        printf(" HEALTH FOR PLAYER texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+         if(!fuckHealth.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Kill Fuckers v0.1/Must Kill Fuckers v0.1/images/fuckHealth.png"))
+    {
+        printf(" HEALTH FUCK texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+      if(!theBullets.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Kill Fuckers v0.1/Must Kill Fuckers v0.1/images/bullets.png"))
+    {
+        printf(" THE BULLETS texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+
+//FONTS   FONTS   FONTS   FONTS   FONTS   FONTS
+
+    font = TTF_OpenFont("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Must Kill Fuckers v0.1/Must Kill Fuckers v0.1/fonts/DigitaldreamFat.ttf",31);
+        if(font == NULL){printf("Failed to load font %s\n\n", TTF_GetError());
+        success = false;}
+
+//SOUNDS
+          ak_47 = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Must Eat Brains/media/sounds/ak-47.wav");
+        if(ak_47 == NULL){
+            printf("ak-47 sound err %s\n\n", Mix_GetError());
+        }
+        enemyDie = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Must Eat Brains/media/sounds/enemyDie.wav");
+        if(enemyDie == NULL){
+            printf("enemyDie sound err %s\n\n", Mix_GetError());
+        }
+         reload = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Must Eat Brains/media/sounds/reload.wav");
+        if(reload == NULL){
+            printf("relaod sound err %s\n\n", Mix_GetError());
+        }
+         emptyMag = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Must Eat Brains/media/sounds/emptyMag.wav");
+        if(emptyMag == NULL){
+            printf("emptyMag sound err %s\n\n", Mix_GetError());
+        }
+
+
+
+
+
+
+
+
+return success;
+}
+
+//RETURN RAND NUM FROM SPECIFIED SET
+int randPOS(int seed)
+{
+    srand(seed);  // seed the random number generator with the current time
+    int nums[] = {-275, -504, -1320, -2467, -7560,width+475, width+2204, width+8320, width+7467, width+9560};//SPECIFY SET
+    static int last_index = -1;  // initialize the last index to an invalid value
+    int index;
+    do {
+        index = rand() % 10;  // get a random index between 0 and 4
+    } while (index == last_index);  // loop until a different index is chosen
+    last_index = index;  // update the last index to the current index
+    return nums[index];
+}
+
+void setupPos(){
+
+    if(setPOS){plY = ground;
+                plX = 450;
+                plDir = RIGHT;
+
+                fuckX = 40;
+                fuckY = ground - 29;
+
+            for(int f = 0; f < NUM_OF_FUCKERS; f++){
+                LfuckerY[f] = ground+30;
+                LfuckerHit[f] = 0;
+               LfuckerX[f] = randPOS(f+999999);
+               }
+
+            }
+
+}
+
+
+
+
+
+void bulletPos(){
+    //bullet back to player if !flying
+    for(int b = 0; b < CLIP_SIZE; b++ ){
+        if(!bulFlying[b]){bulY[b] = plY + 55; bulX[b] = plX+plW;}
+    }
+
+
+}
+
+
+
+
+void checkInput(){
+
+                while(SDL_PollEvent(&keyEvent)!=0)
+                {
+                    if(keyEvent.type == SDL_QUIT){quit = true;}
+                    else if(keyEvent.type == SDL_KEYDOWN){
+                        switch(keyEvent.key.keysym.sym)
+                        {
+                        case SDLK_d:
+                            plRight = true;
+                            plDir = RIGHT;
+                            break;
+                        case SDLK_a:
+                            plLeft = true;
+                            plDir = LEFT;
+                            break;
+                        case SDLK_SPACE:
+                            if(plY>=ground){plJump = true;}
+                            break;
+                             // SHOOT
+                        case SDLK_RETURN:
+                            rendBullet = true;
+                            break;
+                        case SDLK_SEMICOLON:
+                            rendBullet = true;
+                            break;
+                        case SDLK_p:
+                            if(bulletInChamber  > 5 || bulletInChamber == 0){
+                            Mix_PlayChannel(7, reload, 0);
+                            bulletInChamber = 1;
+                            bulletsLeft = 30;}
+                            break;
+
+
+                        }//switch
+                    }//key-down
+
+
+                    else if(keyEvent.type == SDL_KEYUP){
+                        switch(keyEvent.key.keysym.sym)
+                        {
+                        case SDLK_d:
+                            plRight = false;
+                            break;
+                        case SDLK_a:
+                            plLeft = false;
+                            break;
+                        case SDLK_RETURN:
+                            rendBullet = false;
+                            break;
+
+                        }//switch
+                    }//key-up
+
+
+
+                }//event while
+
+
+}
+
+
+
+
+
+
+// COLLISION
+void checkCollision(){
+    // player JUMP on Big Fucker
+    if(plX+40 > fuckX && plX+30 < fuckX+fuckW){
+        if(plY >= fuckY-plH+4.5 && plY <= fuckY){plJump = true;}
+    }
+    // fucker got player
+    if(plX+plW-20 >  fuckX && plX < fuckX + fuckW-20){if(plY > fuckY){plJump = false; gotPlayer = true; health-=0.3;}}
+    else{gotPlayer = false;}
+    // rats With rats
+    for(int f = 0; f < NUM_OF_FUCKERS; f++){
+        if(LfuckerX[f] > LfuckerX[f+1] && LfuckerX[f] < LfuckerX[f+1] + 50){LfuckerX[f] = LfuckerX[f+1]+80;}
+    }
+    // rats with player
+     for(int f = 0; f < NUM_OF_FUCKERS; f++){
+        if(LfuckerX[f] > plX-150 && LfuckerX[f] < plX+plW-30 ){if(plY > LfuckerY[f]-40 ){health -= 0.5;}}
+     }
+
+
+
+
+     // bullets
+     for(int f = 0; f < NUM_OF_FUCKERS; f++){
+        // kill
+        if(LfuckerHit[f] >= 2){LfuckerX[f] = randPOS(time(0));LfuckerHit[f] = 0;}
+        // moving right hit
+        // RATS
+        if(LfuckerDir[f] == RIGHT){
+            for(int b = 0; b < CLIP_SIZE; b++){
+                if(bulFlying[b] && bulX[b] < LfuckerX[f]+LfuckerW+70 && bulX[b] > LfuckerX[f]+LfuckerW+70-15 ){
+                    if(bulY[b] > LfuckerY[f]){
+                        bulFlying[b] = false; LfuckerHit[f]++;} }
+            }
+        }
+        // FUCKER
+        if(fuckDir == RIGHT){
+            for(int b = 0; b < CLIP_SIZE; b++){
+                if(bulFlying[b] && bulX[b] < fuckX+fuckW && bulX[b] > fuckX+fuckW-15 ){
+                if(bulY[b] > fuckY && !gotPlayer){
+                    bulFlying[b] = false; fuckHit--;} }
+            }
+        }
+        // moving left hit
+        // RATS
+        if(LfuckerDir[f] == LEFT){
+            for(int b = 0; b < CLIP_SIZE; b++){
+                if(bulFlying[b] && bulX[b] > LfuckerX[f] && bulX[b] < LfuckerX[f]+15 ){
+                    if(bulY[b] > LfuckerY[f]){
+                        bulFlying[b] = false; LfuckerHit[f]++;} }
+            }
+        }
+        // FUCKER
+         if(fuckDir == LEFT){
+            for(int b = 0; b < CLIP_SIZE; b++){
+                if(bulFlying[b] && bulX[b] > fuckX && bulX[b] < fuckX+15 ){
+                    if(bulY[b] > fuckY && !gotPlayer){
+                        bulFlying[b] = false; fuckHit--;} }
+            }
+        }
+
+
+     }// for bullets
+
+
+
+
+
+
+}
+
+
+
+
+// HEALTH RENDER
+void renderHealth(){
+
+            // player DIES
+    if(health <= 0){SDL_Delay(1000);}
+     playerHealthW = health;
+            // fucker DIES
+     if(fuckHit <= 0){fuckX = 9999;}
+     fuckHealthW = fuckHit;
+
+                barOfHealth.render( barOfHealthX, barOfHealthY );
+                barOfHealth.render( fuckBarX, fuckBarY );
+
+                playerHealth.renderWidth( playerHealthX, playerHealthY, playerHealthW );
+                fuckHealth.renderWidth( fuckHealthX, fuckHealthY, fuckHealthW );
+}
+
+
+// AMMO RENDER
+void renderAmmo(){
+
+     ammo = to_string(bulletsLeft);
+                SDL_Color textColor = {255,255,255};
+                    if(!numOfBullets.loadFromRenderedText(ammo, textColor)){
+                        printf("failed to render scoreText %s\n\n", SDL_GetError());
+                    }
+    theBullets.render(theBulX, theBulY);
+
+}
+
+
+//PLAYER
+void movePlayer(){
+    // gravity
+    plY += gravity+0.3;
+    if(plY > ground){plY = ground;}
+
+    // move right & left
+    if(gotPlayer && plRight){plX += plVelX-2;}
+    else if(gotPlayer && plLeft){plX -= plVelX-2;}
+    else if(!gotPlayer && plRight){plX += plVelX;}
+    else if(!gotPlayer && plLeft){plX -= plVelX;}
+
+    // jumping
+    if(plJump){
+           if(plY <= ground){plY -= plVelY;}
+           if(plY < (ground-plMaxJump+150) ){plY += 1; }
+           if(plY < (ground-plMaxJump+142) ){plY += 1; }
+           if(plY < (ground-plMaxJump+123) ){plY += 1.5; }
+           if(plY < (ground-plMaxJump+102) ){plY += 2.3; }
+           if(plY < (ground-plMaxJump+80) ){plY += 3.4; }
+
+            if(plY < ground && plRight){plX+=2.3;}
+            else if(plY < ground && plLeft){plX-=2.3;}
+    }
+    // player falls
+    if(plY <= plMaxJump){plJump = false;}
+}
+void renderPlayer(){
+
+     if(plDir == RIGHT){playerRIGHT.render(plX,plY);}
+else if(plDir == LEFT) {playerLEFT.render(plX,plY);}
+
+}
+
+
+
+
+
+
+// BIG FUCKER
+void moveBigFucker(){
+
+     if(fuckX < plX){fuckDir = RIGHT;}
+else if(fuckX > plX){fuckDir = LEFT;}
+     if(fuckDir == RIGHT){fuckX += 2;}
+else if(fuckDir == LEFT){fuckX -=2;}
+}
+void renderFucker(){
+     if(fuckDir == RIGHT){BigFuckerRIGHT.render(fuckX, fuckY);}
+        else if(fuckDir == LEFT) {BigFuckerLEFT.render(fuckX, fuckY);}
+}
+
+
+
+
+
+
+
+
+// LITTLE FUCKERS
+void moveFuckers(){
+
+    for(int f = 0; f < NUM_OF_FUCKERS; f++){
+        if(LfuckerX[f] < plX){LfuckerDir[f] = RIGHT;}
+        else if(LfuckerX[f] > plX){LfuckerDir[f] = LEFT;}
+        if(LfuckerDir[f] == RIGHT){LfuckerX[f] += 2.2;}
+        else if(LfuckerDir[f] == LEFT){LfuckerX[f] -=2.2;}
+    }
+
+}
+
+
+void renderTheFuckers(){
+    for(int f = 0; f < NUM_OF_FUCKERS; f++)
+        if(LfuckerDir[f] == RIGHT){ littleFuckerRIGHT.render(LfuckerX[f], LfuckerY[f] ); }
+            else if(LfuckerDir[f] == LEFT){ littleFuckerLEFT.render(LfuckerX[f], LfuckerY[f] ); }
+
+}
+
+
+
+
+
+
+
+
+
+//  BULLETS
+
+void shoot() {
+// mag empty
+if(bulletInChamber >= CLIP_SIZE){bulletInChamber = 0;}
+// play empty sound
+if(rendBullet && bulletInChamber == 0){Mix_PlayChannel(1, emptyMag, 0);rendBullet = false;}
+
+    // render & shoot
+    for(int b = 0; b < CLIP_SIZE; b++ ){
+        // allow shoot RIGHT & LEFT
+        if(rendBullet && bulletInChamber != 0 && bulletInChamber == b && plDir == RIGHT){bulDir[b] = RIGHT; bulFlying[b] = true; bulletInChamber++; bulletsLeft--; rendBullet = false; }
+            else if(rendBullet && bulletInChamber != 0 && bulletInChamber == b && plDir == LEFT){bulDir[b] = LEFT; bulFlying[b] = true; bulletInChamber++; bulletsLeft--; rendBullet = false; }
+        // play shoot sound RIGHT & LEFT
+        if(bulDir[b] == RIGHT && bulX[b] < plX+(plW+5) && bulFlying[b] ){Mix_PlayChannel(1 , ak_47, 0);}
+            else if(bulDir[b] == LEFT && bulX[b] > plX+80 && bulFlying[b] ){Mix_PlayChannel(2 , ak_47, 0);}
+        // render bul RIGHT & LEFT
+        if(bulFlying[b] && bulDir[b] == RIGHT){bulletT.render(bulX[b],bulY[b]); bulX[b]+=15;}
+            else if(bulFlying[b] && bulDir[b] == LEFT){bulletT.render(bulX[b]-plW,bulY[b]); bulX[b]-=15;}
+    }
+
+    // bullet hit walls
+    for(int b = 0; b < CLIP_SIZE; b++){
+        if(bulX[b] > width){bulFlying[b] = false;}
+            else if(bulX[b] < 0){bulFlying[b] = false;}
+    }
+
+}
+
+
+
+
+
+
+
+void close(){
+
+    playerRIGHT.free();
+    playerLEFT.free();
+    background.free();
+
+    SDL_DestroyRenderer(renderer);   renderer = NULL;
+    SDL_DestroyWindow(window);       window = NULL;
+    TTF_CloseFont(font);             font = NULL;
+
+IMG_Quit();
+SDL_Quit();
+TTF_Quit();
+}
+
+
+
+
+
+
+
+
+
+
+
+int main(int argc, char* args[]){
+
+                setPOS = true;
+if(!init())
+{
+    printf("main initialization fail\n\n");
+}else{
+
+
+                setupPos();
+
+
+
+
+        if(!loadMedia())
+        {
+            printf("main mediaLoad fail\n\n");
+        }else{
+
+
+            while(!quit)
+            {
+                 SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE),{0,0});
+        std::cout << health << "                              " << std::endl << fuckHit << std::endl;
+                checkInput();
+                checkCollision();
+                movePlayer();
+                moveBigFucker();
+                moveFuckers();
+
+
+
+                SDL_SetRenderDrawColor(renderer,0xFF,0xFF,0xFF,0xFF);
+                SDL_RenderClear(renderer);
+
+                background.render(0,0);
+                renderHealth();
+                renderAmmo();
+
+
+
+                numOfBullets.render(numBulX, numBulY);
+
+                        renderTheFuckers();
+                        renderFucker();
+                        renderPlayer();
+
+            bulletPos();
+                shoot();
+
+
+
+                        SDL_RenderPresent(renderer);
+
+
+
+
+
+
+            }//main while
+
+        }//media else
+
+    }//init else
+
+close();
+return 0;
+}//main
+
