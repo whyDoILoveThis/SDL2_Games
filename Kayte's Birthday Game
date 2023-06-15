@@ -1,0 +1,1426 @@
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_mixer.h>
+#include <SDL2/SDL_ttf.h>
+#include <stdio.h>
+#include <string>
+#include <conio.h>
+#include <ctime>
+#include <iostream>
+
+const int width = 640, height = 850 ;
+
+class LTexture {
+
+public:
+    LTexture();
+    ~LTexture();
+
+    bool loadFromFile(std::string path);
+    bool loadFromRenderedText(std::string text, SDL_Color textColor);
+
+    void free();
+
+    void render(int x, int y);
+    void renderSpecific(int x, int y, int rectW, int rectH);
+    void renderAnimation(int x, int y, SDL_Rect* clip);
+
+    int getWidth();
+    int getHeight();
+
+private:
+    SDL_Texture* mTexture;
+    int mWidth;
+    int mHeight;
+};
+
+bool init();
+
+bool loadMedia();
+
+void close();
+
+SDL_Window* window = NULL;
+SDL_Renderer* renderer = NULL;
+
+const int unicornAnimationFrames = 4;
+SDL_Rect unicornWalkingSprite[unicornAnimationFrames];
+LTexture unicornWalkingTexture;
+
+
+//FONTS     FONTS   FONTS   FONTS   FONTS
+
+TTF_Font* scoreFont = NULL;
+
+
+//SOUNDS    SOUNDS  SOUNDS  SOUNDS  SOUNDS
+    bool playSound = false;
+    bool soundPlayed = false;
+Mix_Chunk* keyPickup = NULL;
+//menu
+Mix_Chunk* mainTheme = NULL;
+Mix_Chunk* menuSelection = NULL;
+Mix_Chunk* menuClick = NULL;
+//level 1
+Mix_Chunk* shootBerry = NULL;
+Mix_Chunk* berryHitCloud = NULL;
+Mix_Chunk* berryHitWall = NULL;
+Mix_Chunk* berryReset = NULL;
+Mix_Chunk* scoreUp = NULL;
+Mix_Chunk* levelWin = NULL;
+Mix_Chunk* doorUnlock = NULL;
+//level 2
+Mix_Chunk* pickUpBasket = NULL;
+//level 3
+Mix_Chunk* hayFall = NULL;
+Mix_Chunk* hayInBasket = NULL;
+Mix_Chunk* hayInGrass = NULL;
+
+
+
+// TEXTURES     TEXTURES    TEXTURES    TEXTURES
+//menu
+LTexture scoreText;
+LTexture background;
+LTexture mainMenuBackground;
+LTexture menuBubble;
+LTexture key;
+//levelSelection
+LTexture levelSelection;
+LTexture selectArrow;
+//level1
+LTexture level1;
+LTexture lev1MoveInstruct;
+LTexture lev1PlayInstruct;
+LTexture cowRIGHT;
+LTexture cowLEFT;
+LTexture strawberry;
+LTexture level1Door;
+//level2
+LTexture level2;
+LTexture unicornRIGHT;
+LTexture unicornLEFT;
+LTexture basketTipped;
+LTexture cowRIGHTwBasket;
+LTexture cowLEFTwBasket;
+LTexture item_1;
+LTexture item_2;
+LTexture item_3;
+LTexture item_4;
+LTexture item_5;
+LTexture item_6;
+LTexture item_7;
+LTexture item_8;
+//level3
+LTexture level3;
+LTexture grass;
+LTexture hay;
+LTexture cowLEFTlev3;
+LTexture cowRIGHTlev3;
+//MY FUNCTIONS  MY FUNCTIONS    MY FUNCTIONS    MY FUNCTIONS    MY FUNCTIONS
+    bool showInstr1 = false;
+    bool showInstr2 = false;
+    bool accessMainMenu = false;
+    int MBubX, MBubY;
+    int LBubX, LBubY;
+    int newGameX = 166, newGameY = 254, levelsX = 208, levelsY = 357 , exitGameX = 245, exitGameY = 465;
+
+    int cowX, cowY;
+    int cowW, cowH;
+    int score;
+    bool pressed = false;
+    enum direction {STOP = 0, UP = 1, DOWN = 2, LEFT = 3, RIGHT = 4, DOWNLEFT = 5,DOWNRIGHT = 6, UPLEFT = 7, UPRIGHT = 8, SHOOT = 9, STILL = 10, gotKey = 11
+                        };
+    direction dir;
+    direction act;
+    direction charDir;
+    direction keyDir;
+    direction lastDir;
+    enum speed {START = 2, SLOW = 4, MEDIUM = 5, FAST = 6};
+    speed spd;
+    enum location {ONE = 20, TWO = 60, THREE = 100, FOUR = 120, FIVE = 160, SIX = 200};
+
+    bool accessLevels = false;
+    int selArowX, selArowY;
+    int levSel1, levSel2, levSel3;
+
+    bool accessLevel_1 = false;
+    int strawberryX, strawberryY;
+    int strawberryW, strawberryH;
+    int strberryLEFTx, strberryRIGHTx= cowX+97;
+    int strberrLEFTy, strberryRIGHTy = cowY+64;
+    int keyX, keyY;
+    int keyW, keyH;
+    int level1DoorX, level1DoorY;
+    int goalLeft, goalRight;
+    bool hitWallLEFT = false, hitWallRIGHT, changeDir = false;
+    bool win = false;
+
+    bool accessLevel_2 = false;
+    int unicornX, unicornY, unicornW, unicornH;
+    int cowBasketX, cowBasketY, cowBasketW, cowBasketH;
+    int basketTippedX, basketTippedY, basketTippedW, basketTippedH;
+    bool gotBasket=false;
+    bool got1=false, got2=false, got3=false, got4=false, got5=false, got6=false, got7=false, got8=false, gotAll=false;
+
+    bool accessLevel_3 = false;
+    int hayX, hayY, hayW, hayH;
+
+void input();
+            bool quit = false;
+
+    bool setPos = false;
+void loadingScreen();
+int timesRan = 0, frame = 0;
+void mainMenu();
+void levelSelect();
+void level_1();
+void level_2();
+void level_3();
+void gameWin();
+
+
+
+
+
+LTexture::LTexture(){
+
+    mTexture = NULL;
+    mWidth = 0;
+    mHeight = 0;
+}
+LTexture::~LTexture(){
+
+    free();
+}
+
+
+
+
+
+
+bool LTexture::loadFromFile(std::string path){
+
+    free();
+    SDL_Texture* newTexture = NULL;
+
+    SDL_Surface* loadedSurface = IMG_Load(path.c_str());
+    if(loadedSurface == NULL)
+    {
+        printf("IMAGE LOAD ERR %s SDL err: %s\n\n", path.c_str(), IMG_GetError());
+    }else{
+            SDL_SetColorKey(loadedSurface,SDL_TRUE,SDL_MapRGB(loadedSurface->format,0,0xFF,0xFF));
+
+            newTexture= SDL_CreateTextureFromSurface(renderer, loadedSurface);
+                if(newTexture == NULL)
+                {
+                    printf("SURFACE CONVERSION ERR %s SDL_err: %s\n\n", path.c_str(), SDL_GetError());
+                }else{mWidth = loadedSurface->w; mHeight = loadedSurface->h;
+                    }
+
+            SDL_FreeSurface(loadedSurface);
+
+        }//else line63
+
+mTexture = newTexture;
+return mTexture != NULL;
+}
+
+
+
+void LTexture::free(){
+
+    SDL_DestroyTexture(mTexture);
+    mTexture = NULL;
+    mWidth = 0;
+    mHeight = 0;
+}
+
+
+
+
+void LTexture::render(int x,int y){
+
+    SDL_Rect renderQuad = {x, y, mWidth, mHeight};
+    SDL_RenderCopy(renderer,mTexture,NULL,&renderQuad);
+}
+
+void LTexture::renderSpecific(int x, int y, int rectW, int rectH){
+    SDL_Rect renderMyQuad = {x, y, rectW, rectH};
+    SDL_RenderCopy(renderer,mTexture,NULL,&renderMyQuad);
+}
+
+void LTexture::renderAnimation(int x,int y, SDL_Rect* clip){
+
+    SDL_Rect renderQuad = {x, y, mWidth, mHeight};
+    if(clip != NULL){renderQuad.w = clip->w; renderQuad.h = clip->h;
+    }
+    SDL_RenderCopy(renderer,mTexture,clip,&renderQuad);
+}
+
+
+
+
+//int LTexture::getWidth(){return mWidth;}
+//int LTexture::getHeight(){return mHeight;}
+
+
+
+
+
+
+
+bool init(){
+
+    bool success = true;
+
+    if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)<0){
+        printf("!!!!INITIALIZATION FAILURE!!!! SDL_err: %s\n\n", SDL_GetError());
+        success = false;
+    }else{
+            if(!SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,"1")){
+                printf("Linear Texture Filter Err %s\n\n", SDL_GetError());
+            }
+
+        window = SDL_CreateWindow("Kayte's Birthday Game",  SDL_WINDOWPOS_CENTERED  ,SDL_WINDOWPOS_CENTERED,
+                                        width,  height,  SDL_WINDOW_SHOWN);
+
+                if(window == NULL)
+                {
+                    printf("Window Could Not Create SDL_err %s\n\n", SDL_GetError());
+                }else{
+                        renderer = SDL_CreateRenderer(window,-1,SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);
+                            if(renderer == NULL)
+                            {
+                                printf("RENDERER CREATION ERR SDL_err %s\n\n", SDL_GetError());
+                                success = false;
+                            }else{
+                                SDL_SetRenderDrawColor(renderer,0xFF,0xFF,0xFF,0xFF);
+
+                                int imgFlags = IMG_INIT_PNG;
+                                    if(!(IMG_Init(imgFlags)&imgFlags))
+                                    {
+                                        printf("SDL_image initialization err %s\n\n", SDL_GetError());
+                                        success = false;
+                                    }
+
+                                    if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT,2, 2048)<0){
+                                        printf("mixer not init %s\n\n", Mix_GetError());
+                                    }
+                                    if(TTF_Init() == -1){
+                                    printf("TTF init err %s\n\n", TTF_GetError());
+                                    }
+
+
+                            }
+
+
+
+                }
+
+
+    }//else line105
+
+return success;
+}//init
+
+
+bool LTexture::loadFromRenderedText(std::string text, SDL_Color textColor){
+    free();
+
+    SDL_Surface* textSurface = TTF_RenderText_Solid(scoreFont, text.c_str(), textColor);
+        if(textSurface == NULL){
+            printf("text not go %s\n\n", TTF_GetError());
+        }else{
+            mTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+            if(mTexture == NULL){
+                printf("creating text from surface failure %s\n\n", SDL_GetError());
+            }else{
+                mWidth = textSurface->w;
+                mHeight = textSurface->h;
+            }
+
+            SDL_FreeSurface(textSurface);
+
+        }
+
+    return mTexture != NULL;
+
+
+
+}
+
+
+bool loadMedia(){
+    bool success = true;
+
+    //FONTS   FONTS   FONTS   FONTS   FONTS   FONTS
+
+     scoreFont = TTF_OpenFont("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/DigitalDream.ttf", 30);
+        if(scoreFont == NULL){printf("Failed to load score font %s\n\n", TTF_GetError());
+        success = false;}
+            else{
+                SDL_Color textColor = {220,15,255};
+                    if(!scoreText.loadFromRenderedText("score", textColor)){
+                        printf("failed to render scoreText %s\n\n", SDL_GetError());
+                    }
+            }
+
+    if(!background.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/sdl2 moving my image/images/background.png"))
+    {
+        printf("background image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+       if(!key.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/key.png"))
+    {
+        printf("key image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+    if(!unicornWalkingTexture.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/unicornAnimation.png"))
+    {
+        printf("unicorn texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+    unicornWalkingSprite[0].x = 0;   unicornWalkingSprite[0].y = 0;
+    unicornWalkingSprite[0].w = 100; unicornWalkingSprite[0].h = 100;
+
+    unicornWalkingSprite[1].x = 100; unicornWalkingSprite[1].y = 0;
+    unicornWalkingSprite[1].w = 100; unicornWalkingSprite[1].h = 100;
+
+    unicornWalkingSprite[2].x = 200; unicornWalkingSprite[2].y = 0;
+    unicornWalkingSprite[2].w = 100; unicornWalkingSprite[2].h = 100;
+
+    unicornWalkingSprite[3].x = 300; unicornWalkingSprite[3].y = 0;
+    unicornWalkingSprite[3].w = 100; unicornWalkingSprite[3].h = 100;
+
+
+    //MAIN MENU MAIN
+    //sounds
+     mainTheme = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/kaytesBirthdayGameTheme.wav");
+    if(mainTheme == NULL){
+        printf("main theme sound err %s\n\n", Mix_GetError());
+    }
+    menuSelection = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/menuSelection.wav");
+    if(menuSelection == NULL){
+        printf("selection sound err %s\n\n", Mix_GetError());
+    }
+     menuClick = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/menuClick.wav");
+    if(menuClick == NULL){
+        printf("click sound err %s\n\n", Mix_GetError());
+    }
+
+    //textures
+     if(!mainMenuBackground.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/mainMenuBackground.png"))
+    {
+        printf("mainMenubackground image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+     if(!menuBubble.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/menuBubble.png"))
+    {
+        printf("arrow image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+    //LEVEL SELECT  LEVEL SELECT    LEVEL SELECT
+
+     if(!levelSelection.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level Select/levelSelection.png"))
+    {
+        printf("selection load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+     if(!selectArrow.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level Select/selectArrow.png"))
+    {
+        printf("select arrow load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+
+
+    //LEVEL 1 LEV 1 LEV 1
+    //sounds
+     shootBerry = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 1/shootBerry.wav");
+    if(shootBerry == NULL){
+        printf("shoot berry sound err %s\n\n", Mix_GetError());
+    }
+     berryHitCloud = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 1/berryHitCloud.wav");
+    if(berryHitCloud == NULL){
+        printf("berryhit cloud sound err %s\n\n", Mix_GetError());
+    }
+     berryHitWall = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 1/berryHitWall.wav");
+    if(berryHitWall == NULL){
+        printf("berryhit wall sound err %s\n\n", Mix_GetError());
+    }
+     berryReset = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 1/berryReset.wav");
+    if(berryReset == NULL){
+        printf("berry reset sound err %s\n\n", Mix_GetError());
+    }
+     scoreUp = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 1/scoreUp.wav");
+    if(scoreUp == NULL){
+        printf("berry reset sound err %s\n\n", Mix_GetError());
+    }
+     levelWin = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 1/WIN.wav");
+    if(levelWin == NULL){
+        printf("WIN sound err %s\n\n", Mix_GetError());
+    }
+     keyPickup = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/keyPickup.wav");
+    if(keyPickup == NULL){
+        printf("key sound err %s\n\n", Mix_GetError());
+    }
+    doorUnlock = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/doorUnlock.wav");
+    if(doorUnlock == NULL){
+        printf("door sound err %s\n\n", Mix_GetError());
+    }
+    //textures
+       if(!level1.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 1/level1.png"))
+    {
+        printf("level1 image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+       if(!lev1MoveInstruct.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 1/level1MoveInstruct.png"))
+    {
+        printf("1 move instruct image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+       if(!lev1PlayInstruct.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 1/level1PlayInstruct.png"))
+    {
+        printf("1 play instruct image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+      if(!strawberry.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 1/strawberry.png"))
+    {
+        printf("strawberry image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+       if(!cowLEFT.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 1/cowLEFT.png"))
+    {
+        printf("cow left image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+        if(!cowRIGHT.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 1/cowRIGHT.png"))
+    {
+        printf("cow right image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+      if(!level1Door.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 1/level1Door.png"))
+    {
+        printf("lev1 door image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+
+
+
+    //LEV 2 LEV 2 LEV 2
+    //sounds
+    pickUpBasket = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 2/pickUpBasket.wav");
+       if(pickUpBasket == NULL){
+        printf("pick up basket sound err %s\n\n", Mix_GetError());
+    }
+    //textures
+       if(!basketTipped.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 2/basketTipped.png"))
+    {
+        printf("cowRIGHTwBasket instruct image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+    if(!unicornRIGHT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/sdl2 moving my image/images/unicorn_defaultPNG.png"))
+    {
+        printf("unicorn texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+    if(!unicornLEFT.loadFromFile("C:/Users/Jessica/Documents/codeBlocks/0.GAMES/sdl2 moving my image/images/unicorn_LEFTPNG.png"))
+    {
+        printf("unicorn texture load fail %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+       if(!level2.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 2/level2.png"))
+    {
+        printf("level 2 image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+       if(!cowRIGHTwBasket.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 2/cowRIGHTwBasket.png"))
+    {
+        printf("cowRIGHTwBasket instruct image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+       if(!cowLEFTwBasket.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 2/cowLEFTwBasket.png"))
+    {
+        printf("cowLEFTwBasket instruct image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+       if(!cowRIGHTwBasket.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 2/cowRIGHTwBasket.png"))
+    {
+        printf("cowRIGHTwBasket instruct image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+//LEV 2 LEV 2 ITEMS ITEMS
+
+//#1
+       if(!item_1.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 2/items/item1.png"))
+    {
+        printf("1 item image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+//#2
+       if(!item_2.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 2/items/item2.png"))
+    {
+        printf("2 item image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+//#3
+       if(!item_3.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 2/items/item3.png"))
+    {
+        printf("3 item image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+//#4
+       if(!item_4.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 2/items/item4.png"))
+    {
+        printf("4 item image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+//#5
+       if(!item_5.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 2/items/item5.png"))
+    {
+        printf("5 item image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+//#6
+       if(!item_6.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 2/items/item6.png"))
+    {
+        printf("6 item image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+//#7
+       if(!item_7.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 2/items/item7.png"))
+    {
+        printf("7 item image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+//#8
+       if(!item_8.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 2/items/item8.png"))
+    {
+        printf("8 item image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+
+
+
+    //LEV 3 LEV 3 LEV 3
+    //sounds
+     hayFall = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 3/hayFall.wav");
+       if(hayFall == NULL){
+        printf("hayFall sound err %s\n\n", Mix_GetError());
+    }
+     hayInBasket = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 3/hayInBasket.wav");
+       if(hayInBasket == NULL){
+        printf("hay in basket sound err %s\n\n", Mix_GetError());
+    }
+     hayInGrass = Mix_LoadWAV("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 3/hayInGrass.wav");
+       if(hayInGrass == NULL){
+        printf("hay in grass sound err %s\n\n", Mix_GetError());
+    }
+    //textures
+     if(!level3.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 3/level3.png"))
+    {
+        printf("level 3 image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+         if(!grass.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 3/grass.png"))
+    {
+        printf("grass image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+         if(!cowLEFTlev3.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 3/cowLEFT3.png"))
+    {
+        printf("cow L3 image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+         if(!cowRIGHTlev3.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 3/cowRIGHT3.png"))
+    {
+        printf("cow R3 image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+         if(!hay.loadFromFile("C:/Users/Jessica/Documents/codeblocks/0.GAMES/0.SDL2/Kayte's Birthday Game/images/Level 3/hay.png"))
+    {
+        printf("hay image load err %s\n\n", SDL_GetError());
+        success = false;
+    }
+
+
+
+
+return success;
+}
+
+
+
+
+
+void close(){
+
+    unicornRIGHT.free();
+    unicornLEFT.free();
+    background.free();
+
+    SDL_DestroyRenderer(renderer);   renderer = NULL;
+    SDL_DestroyWindow(window);       window = NULL;
+
+IMG_Quit();
+SDL_Quit();
+Mix_Quit();
+}
+
+
+
+
+
+void loadingScreen(){
+while(timesRan < 100){
+     SDL_SetRenderDrawColor(renderer,0x50,0x50,0x50,0xFF);
+                SDL_RenderClear(renderer);
+
+                SDL_Rect* currentClip = &unicornWalkingSprite[frame / 4];
+
+                unicornWalkingTexture.renderAnimation((width-currentClip->w)/2, (height-currentClip->h)/2, currentClip);
+
+
+
+
+
+                        SDL_RenderPresent(renderer);
+
+                        ++frame;
+                        timesRan++;
+                        if(frame/4 >= unicornAnimationFrames){frame=0;}
+                        }
+timesRan = 0;
+}
+
+
+
+
+void levelSelect(){
+    if(setPos){levSel1 = 95; levSel2 = 302; levSel3 = 495;
+                selArowX = levSel1; selArowY = 500;
+
+                win = false;
+                    score = 0;
+                    pressed = false;
+                            accessLevels = true;
+                            accessLevel_1 = false;
+                            accessLevel_2 = false;
+                            accessLevel_3 = false;
+                            accessMainMenu = false;
+                setPos = false;}
+
+     if(accessLevels){
+        levelSelection.render(0,0);
+        selectArrow.render(selArowX,selArowY);
+        }
+
+}
+
+
+
+
+void mainMenu(){
+    if(setPos){MBubX = 76; MBubY = 254;
+    LBubX = 40; LBubY = 400; soundPlayed = false;
+    win = false;
+                    score = 0;
+                            accessLevels = false;
+                            accessLevel_1 = false;
+                            accessLevel_2 = false;
+                            accessLevel_3 = false;
+                            accessMainMenu = true;
+                            loadingScreen();
+                            setPos = false;
+    }
+
+    if(accessMainMenu){
+        if(!soundPlayed){ Mix_Volume(10, 12); Mix_PlayChannel(7, mainTheme, 100); soundPlayed = true;}
+        mainMenuBackground.render(0,0);
+        menuBubble.render(MBubX,MBubY);}
+
+}
+
+
+void level_1(){
+    if(setPos){
+            Mix_PlayChannel(7, berryReset, 0);
+            cowX = 90; cowY = 600; strawberryX = cowX+97; strawberryY = cowY+64; goalLeft = 230; goalRight = 405; score = 0;
+               cowW = 170; cowH = 170; keyX = 5; keyY = 40; strawberryW = 60; strawberryH = 73;
+               keyW = 70; keyH = 30; level1DoorX =482; level1DoorY = 541; dir = STOP; charDir = STOP;
+
+               win = false;
+                    score = 0;
+                            accessLevels = false;
+                            accessLevel_1 = true;
+                            accessLevel_2 = false;
+                            accessLevel_3 = false;
+                            accessMainMenu = false;
+
+               showInstr1 = true;
+               showInstr2 = false;
+               loadingScreen();
+               setPos = false;}
+
+    level1.render(0,0);
+if(!win){
+//level starts
+   if (showInstr1){lev1MoveInstruct.render(0,0);}
+   if(act == STILL && dir != UP){strawberryX = cowX+97; strawberryY = cowY+64; }
+
+   if(dir==STOP){cowRIGHT.renderSpecific(cowX, cowY, cowW,cowH);
+                strawberry.renderSpecific(strawberryX,strawberryY,strawberryW,strawberryH);}
+    if(dir!=STOP){
+            //for shoot
+            if(dir == UP){
+
+                    act = SHOOT;
+                    strawberryY-=11;
+                    showInstr1 = false;
+
+                    //berry hit top
+            if(strawberryY < 40 && strawberryX <= goalLeft){dir = DOWNLEFT; Mix_PlayChannel(2, berryHitCloud, 0);}
+           else if(strawberryY < 40 && strawberryX >= goalRight-strawberryW){dir = DOWNRIGHT; Mix_PlayChannel(2, berryHitCloud, 0);}
+
+           //berry hit goal cloud left
+           else if(strawberryY <= 185 && strawberryX >= 130){if(strawberryX <= 157){dir = DOWNLEFT; Mix_PlayChannel(2, berryHitCloud, 0);}
+           else if(strawberryX > 157 && strawberryX <= 230)dir = DOWNRIGHT; Mix_PlayChannel(2, berryHitCloud, 0);}
+           //berry hit goal cloud right
+           if(strawberryY <= 185 && strawberryX >= 345){if(strawberryX <= 368){dir = DOWNLEFT; Mix_PlayChannel(2, berryHitCloud, 0);}
+           else if(strawberryX > 368 && strawberryX <= 441)dir = DOWNRIGHT; Mix_PlayChannel(2, berryHitCloud, 0);}
+            }
+
+            //berry angle move
+            if(dir == DOWNRIGHT){strawberryX+=5; strawberryY+=5;}
+            if(dir == DOWNLEFT){strawberryX-=5; strawberryY+=5;}
+
+            //score increase
+            if(strawberryY < -80 && strawberryX > goalLeft && strawberryX < goalRight)
+                {score++;act = STILL;Mix_PlayChannel(2, scoreUp, 0);}
+
+            //berry hit wall LEFT
+            if(strawberryX<0 && dir == DOWNLEFT){dir = DOWNRIGHT;Mix_PlayChannel(4, berryHitWall, 0);}
+            //bery hit wall RIGHT
+            if(strawberryX>=width-strawberryW&& dir == DOWNRIGHT){dir = DOWNLEFT;Mix_PlayChannel(4, berryHitWall, 0);}
+
+            //reset berry
+            if(strawberryY > height){dir = charDir;act = STILL;Mix_PlayChannel(4, berryReset, 0);}
+            if(act == STILL){dir = charDir;}
+}
+}//^if not win^
+                    if(win)level1Door.render(level1DoorX, level1DoorY);
+
+            //SPEED
+            if(score == 0&&!win){spd = START; if(charDir != STOP){lev1PlayInstruct.render(0,0);}}
+            else if(score > 0 && score < 3&&!win){spd = SLOW;}
+            else if(score > 3 && score < 6&&!win){spd = MEDIUM;}
+            else if(score > 6 && score < 9&&!win){spd = FAST;}
+
+
+            //for moving RIGHT
+           if(dir == RIGHT){strawberryX = cowX+97
+            ;}
+            if(charDir == RIGHT){cowRIGHT.renderSpecific(cowX,cowY,cowW,cowH); cowX+=spd;lastDir = RIGHT;
+                                 strawberry.renderSpecific(strawberryX,strawberryY,strawberryW,strawberryH);}
+            if(keyDir == RIGHT){keyX-=2;}
+
+            //for const move until hit wall RIGHT
+            if(cowX >= width-(cowW-30)){ hitWallRIGHT = true; changeDir = true;}
+            if(hitWallRIGHT && changeDir){charDir = LEFT; hitWallRIGHT = false; changeDir = false;}
+
+            //for moving LEFT
+
+           if(dir == LEFT){strawberryX = cowX;}
+            if(keyDir == LEFT){keyX-=2;}
+            if(charDir == LEFT){cowLEFT.renderSpecific(cowX,cowY,cowW,cowH);cowX-=spd;lastDir = LEFT;
+                                strawberry.renderSpecific(strawberryX,strawberryY,strawberryW,strawberryH);}
+
+            //for const move until hit wall LEFT
+            if(cowX <= -30){ hitWallLEFT = true; changeDir = true;}
+            if(hitWallLEFT && changeDir){charDir = RIGHT; hitWallLEFT = false; changeDir = false;}
+
+
+
+
+            //TO WIN YOU MUST
+            if(score == 10){win = true; Mix_PlayChannel(5, levelWin,0);score = 0;}
+            //when game is won
+            if(win){
+
+                    //stop movement , spawn door , spawn player , spawn key
+                    charDir = STOP;
+                    strawberryX = 9999; strawberryY = 9999;
+                    dir = UP;
+                    spd = SLOW;
+
+
+                    if(pressed && lastDir == RIGHT){charDir = RIGHT;}
+                    if (pressed && lastDir == LEFT){charDir = LEFT;}
+
+                    if(charDir == STOP && lastDir == RIGHT){cowRIGHT.renderSpecific(cowX,cowY,cowW,cowH);}
+                    if(charDir == STOP && lastDir == LEFT){cowLEFT.renderSpecific(cowX,cowY,cowW,cowH);}
+
+                    key.renderSpecific(keyX,keyY, keyW, keyH); if(keyY < 740){keyY+=4;}
+
+
+
+        //will grab key if       //dist from key
+                playSound = true;
+                if(cowX >= keyX && cowX <= keyX+25){ if(keyY>cowY){if(playSound){Mix_PlayChannel(1, keyPickup, 0);} playSound = false;act = gotKey;}}
+
+        //MAKE KEY STICK & change pos on player
+                if(act == gotKey&&lastDir == RIGHT){
+                 keyX = cowX+80; keyY = cowY+60;}
+                 if(act == gotKey&&lastDir == LEFT){
+                 keyX = cowX+20; keyY = cowY+60;}
+
+
+
+                //to exit level
+                if(keyX > level1DoorX+36){
+                            Mix_PlayChannel(1, doorUnlock, 0);
+                            win = false;
+                            accessLevels = false;
+                            accessLevel_1 = false;
+                            accessLevel_3 = false;
+                            accessMainMenu = false;
+                            showInstr1 = false;
+                            showInstr2 = false;
+                            accessLevel_2 = true;
+                            setPos = true;
+                                                   }
+
+
+
+
+            }
+
+
+
+
+}
+
+void level_2(){
+
+if(setPos){
+                    Mix_PlayChannel(7, berryReset, 0);
+
+                    win = false;
+                    score = 0;
+                            accessLevels = false;
+                            accessLevel_1 = false;
+                            accessLevel_2 = true;
+                            accessLevel_3 = false;
+                            accessMainMenu = false;
+
+            pressed = false; gotBasket = false;
+             got1=false;got2=false;got3=false;got4=false;got5=false;got6=false;got7=false;got8=false;gotAll=false;
+             playSound = false; soundPlayed = false;
+
+            unicornX = 340; unicornY = 250; unicornW = 65; unicornH = 58;
+            basketTippedX = 290; basketTippedY = 278; basketTippedW = 50; basketTippedH = 55;
+            cowX = 165; cowY = 226; cowW = 89; cowH = 84; spd = START; lastDir = RIGHT; charDir = RIGHT;
+            keyX = unicornX-45; keyY = 0; keyW = 50; keyH = 20; dir = STOP;
+
+             loadingScreen();
+             setPos = false;}
+
+level2.render(0,0);
+unicornLEFT.renderSpecific(unicornX,unicornY,unicornW,unicornH);
+
+//ITEMS SPAWN
+    if(!got1){item_1.render(364,353);}
+    if(!got2){item_2.render(122,399);}
+    if(!got3){item_3.render(585,431);}
+    if(!got4){item_4.render(230,597);}
+    if(!got5){item_5.render(471,643);}
+    if(!got6){item_6.render(594,732);}
+    if(!got7){item_7.render(294,777);}
+    if(!got8){item_8.render(45,751);}
+
+
+    if(charDir != STOP){
+
+        //RIGHT
+        if(cowX>width){cowX=0-cowW;}
+        if(cowX<0-cowW){cowX=width;}
+        if(cowY>height-cowH){cowY=height-cowH;}
+        if(charDir == RIGHT && pressed){cowX += spd; lastDir = RIGHT;}
+            if(lastDir == RIGHT){{if(gotBasket){cowRIGHTwBasket.renderSpecific(cowX,cowY,cowW,cowH);}else{cowRIGHT.renderSpecific(cowX,cowY,cowW,cowH);}}}
+        if(charDir == DOWN && pressed){cowY += spd;}
+            if(lastDir == RIGHT && charDir == DOWN){{if(gotBasket){cowRIGHTwBasket.renderSpecific(cowX,cowY,cowW,cowH);}else{cowRIGHT.renderSpecific(cowX,cowY,cowW,cowH);}}}
+            if(lastDir == RIGHT && charDir == UP){{if(gotBasket){cowRIGHTwBasket.renderSpecific(cowX,cowY,cowW,cowH);}else{cowRIGHT.renderSpecific(cowX,cowY,cowW,cowH);}}}
+
+        //LEFT
+        if(charDir == LEFT && pressed){cowX -= spd; lastDir = LEFT;}
+            if(lastDir == LEFT){{if(gotBasket){cowLEFTwBasket.renderSpecific(cowX,cowY,cowW,cowH);}else{cowLEFT.renderSpecific(cowX,cowY,cowW,cowH);}}}
+        if(charDir == UP && pressed && cowY > 234){cowY -= spd;}
+            if(lastDir == LEFT && charDir == DOWN){{if(gotBasket){cowLEFTwBasket.renderSpecific(cowX,cowY,cowW,cowH);}else{cowLEFT.renderSpecific(cowX,cowY,cowW,cowH);}}}
+            if(lastDir == LEFT && charDir == UP){{if(gotBasket){cowLEFTwBasket.renderSpecific(cowX,cowY,cowW,cowH);}else{cowLEFT.renderSpecific(cowX,cowY,cowW,cowH);}}}
+    }//if dir not stop
+
+if(!win){
+
+if(!gotBasket){basketTipped.renderSpecific(basketTippedX,basketTippedY,basketTippedW,basketTippedH);}
+
+            //cow movement
+
+
+
+        //pick up basket
+        if(cowX+cowW-25 >= basketTippedX && cowX <=basketTippedX+basketTippedW){if(cowY<=basketTippedY){gotBasket = true;
+         if(soundPlayed == false){
+            Mix_PlayChannel(2, pickUpBasket, 0);
+            soundPlayed = true;} }}
+
+
+        //pick up items
+        //1
+        if(!got1 && cowX+cowW >=364+19 && cowX <= 364+30){if(gotBasket){if(cowY <= 353 && cowY >= 353-44)
+            {Mix_PlayChannel(1, berryReset, 0); got1=true;score++;}}}
+        //2
+        if(!got2 && cowX+cowW >=122+19 && cowX <= 122+30){if(gotBasket){if(cowY <= 399 && cowY >= 399-44)
+            {Mix_PlayChannel(1, berryReset, 0); got2=true;score++;}}}
+        //3
+        if(!got3 && cowX+cowW >=585+19 && cowX <= 585+30){if(gotBasket){if(cowY <= 431 && cowY >= 431-44)
+            {Mix_PlayChannel(1, berryReset, 0);got3=true;score++;}}}
+        //4
+        if(!got4 && cowX+cowW >=230+19 && cowX <= 230+30){if(gotBasket){if(cowY <= 597 && cowY >= 597-44)
+            {Mix_PlayChannel(1, berryReset, 0);got4=true;score++;}}}
+        //5
+        if(!got5 && cowX+cowW >=471+19 && cowX <= 471+30){if(gotBasket){if(cowY <= 643 && cowY >= 643-44)
+            {Mix_PlayChannel(1, berryReset, 0);got5=true;score++;}}}
+        //6
+        if(!got6 && cowX+cowW >=594+19 && cowX <= 594+30){if(gotBasket){if(cowY <= 732 && cowY >= 732-44)
+            {Mix_PlayChannel(1, berryReset, 0);got6=true;score++;}}}
+        //7
+        if(!got7 && cowX+cowW >=294+19 && cowX <= 294+30){if(gotBasket){if(cowY <= 777 && cowY >= 777-44)
+            {Mix_PlayChannel(1, berryReset, 0);got7=true;score++;}}}
+        //8
+        if(!got8 && cowX+cowW >=45+19 && cowX <= 45+30){if(gotBasket){if(cowY <= 751 && cowY >= 751-44)
+            {Mix_PlayChannel(1, berryReset, 0);got8=true;score++;}}}
+        //WIN IF and return basket
+        if(score==8 && cowX+cowW-25 >= unicornX && cowX <= unicornX+(unicornW/4)){if(score == 8 && cowY+cowH>=unicornY && cowY+cowH<=unicornY+unicornH+15){
+                                                                                    cowX = 156; cowY = 226; dir = DOWN; act = STILL;
+                                                                                    Mix_PlayChannel(5, levelWin, 0); score = 0; lastDir = RIGHT;
+                                                                                     win = true; gotBasket=false;playSound = true;}}
+
+
+
+}//if not win
+
+
+
+if(win){
+
+        //spawn key
+    key.renderSpecific(keyX,keyY,keyW,keyH);
+   if(keyY>=cowY+70){dir = STOP; }
+if(dir!=STOP){if(dir==DOWN){keyY+=6;}}
+
+ //will grab key if       //dist from key
+
+                if(cowX >= keyX-cowW+40 && cowX <= keyX ){if(playSound){Mix_PlayChannel(1, keyPickup, 0);playSound = false;} act = gotKey;}
+
+        //MAKE KEY STICK & change pos on player
+                if(act == gotKey&&lastDir == RIGHT){
+                 keyX = cowX+35; keyY = cowY+28;}
+                 if(act == gotKey&&lastDir == LEFT){
+                 keyX = cowX-5; keyY = cowY+28;}
+
+        //to exit level
+            if(keyX>=498 && keyY<=269){
+                        Mix_PlayChannel(2, doorUnlock, 0);
+                            win = false;
+                            accessLevels = false;
+                            accessLevel_1 = false;
+                            accessLevel_2 = false;
+                            accessMainMenu = false;
+                            showInstr1 = false;
+                            showInstr2 = false;
+
+                            setPos = true;
+
+                    accessLevel_3=true;SDL_Delay(500);}
+}//WIN
+
+
+
+
+
+
+
+
+}
+
+
+
+
+int randPOS()
+{
+    srand(time(0));  // seed the random number generator with the current time
+    int nums[] = {75, 204, 320, 467, 560};
+    static int last_index = -1;  // initialize the last index to an invalid value
+    int index;
+    do {
+        index = rand() % 5;  // get a random index between 0 and 4
+    } while (index == last_index);  // loop until a different index is chosen
+    last_index = index;  // update the last index to the current index
+    return nums[index];
+}
+
+
+
+void level_3(){
+    if(setPos){
+                    Mix_PlayChannel(7, berryReset, 0);
+
+        hayX = randPOS();hayY = -2220; score = 0;
+        cowX = 77; cowY = 616; cowW = 140; cowH = 161; lastDir = RIGHT;
+        keyX = 10; keyY = -10; keyW = 60; keyH = 25;
+        level1DoorX =482; level1DoorY = 555;
+
+        win = false;
+                    score = 0;
+                            accessLevels = false;
+                            accessLevel_1 = false;
+                            accessLevel_2 = false;
+                            accessLevel_3 = true;
+                            accessMainMenu = false;
+
+        win = false; playSound = false; soundPlayed = false;
+        loadingScreen();
+        setPos = false;}
+
+level3.render(0,0);
+if(win){level1Door.render(level1DoorX,level1DoorY);}
+
+if(!win){
+hay.render(hayX,hayY);
+
+if(hayX>=cowX&&hayX<=cowX+cowW){if(hayY>cowY&&hayY<cowY+(cowH/2)){score++; hayX = randPOS(); hayY=-500; Mix_PlayChannel(2, hayInBasket, 0); }}
+hayY+=4;
+if(hayY>-6&&hayY<-1){Mix_PlayChannel(1, hayFall, 0);}
+if(hayY>height){hayX = randPOS(); hayY=-500;}
+if(hayY>cowY+cowH+4&& hayY<height-60){Mix_PlayChannel(3, hayInGrass, 0);}
+//to win you must
+if(score == 10){win = true; charDir = STOP;playSound = true; act = SHOOT;}
+
+}//before win
+if(lastDir == RIGHT||charDir == RIGHT){cowRIGHTlev3.renderSpecific(cowX,cowY,cowW,cowH);}
+if(charDir == RIGHT && pressed){cowX+=FAST; lastDir = RIGHT;}
+if(charDir == LEFT && pressed){cowX-=FAST; lastDir = LEFT;}
+if(lastDir == LEFT){cowLEFTlev3.renderSpecific(cowX,cowY,cowW,cowH);}
+
+grass.render(0,0);
+
+if(win){
+        //render key and door
+    if(playSound){Mix_PlayChannel(1, levelWin, 0);playSound = false;}
+    key.renderSpecific(keyX, keyY, keyW, keyH);
+    if(keyY<cowY+cowH-20){keyY+=6;}
+
+     //will grab key if       //dist from key
+
+                if(cowX >= keyX && cowX <= keyX+keyW){  if(keyY>cowY){if(!soundPlayed){Mix_PlayChannel(4, keyPickup, 0);soundPlayed = true;}act = gotKey;}}
+
+        //MAKE KEY STICK & change pos on player
+                if(act == gotKey&&lastDir == RIGHT){
+                 keyX = cowX+63; keyY = cowY+70;}
+                 if(act == gotKey&&lastDir == LEFT){
+                 keyX = cowX+10; keyY = cowY+70;}
+
+
+                   //to exit level
+                if(keyX > level1DoorX+36){
+                            Mix_PlayChannel(1, doorUnlock, 0);
+                            win = false;
+                            accessLevels = false;
+                            accessLevel_1 = false;
+                            accessLevel_2 = false;
+                            accessLevel_3 = false;
+                            accessMainMenu = true;
+                            showInstr1 = false;
+                            showInstr2 = false;
+                            setPos = true;
+                                                   }
+
+
+
+
+}//when won
+
+
+
+
+
+
+
+
+
+
+}
+
+
+
+ void input(){
+
+  SDL_Event e;
+                 while(SDL_PollEvent(&e)!=0){
+                    if(e.type == SDL_QUIT){quit = true;}
+                if(e.type == SDL_KEYDOWN){
+                        switch(e.key.keysym.sym)
+                        {
+                        case SDLK_ESCAPE:
+                            Mix_PlayChannel(7, menuClick, 0);
+                            win = false;
+                            accessLevels = false;
+                            accessLevel_1 = false;
+                            accessLevel_2 = false;
+                            accessLevel_3 = false;
+                            accessMainMenu = true;
+                            setPos = true;
+                            break;
+                            case SDLK_DOWN:
+           //DOWN
+                    //MAIN MENU
+                            if(accessMainMenu){Mix_PlayChannel(1, menuSelection, 0);
+                                if(MBubY == newGameY){MBubY = levelsY;MBubX = levelsX-85;  }
+                                else if(MBubY == levelsY){MBubY = exitGameY;MBubX = exitGameX-85;}
+                                else if(MBubY == exitGameY){MBubY = newGameY;MBubX = newGameX-85;}}
+                    //LEVEL 2
+                            if(accessLevel_2){
+                                charDir = DOWN; pressed = true;
+                            }
+
+                            break;
+                            case SDLK_s:
+            // S
+                    //MAIN MENU
+                            if(accessMainMenu){
+                                     Mix_PlayChannel(1, menuSelection, 0);
+                                if(MBubY == newGameY){MBubY = levelsY;MBubX = levelsX-85;}
+                                else if(MBubY == levelsY){MBubY = exitGameY;MBubX = exitGameX-85;}
+                                else if(MBubY == exitGameY){MBubY = newGameY;MBubX = newGameX-85;}}
+                    //LEVEL 2
+                            if(accessLevel_2){
+                                charDir = DOWN; pressed = true;
+                            }
+
+                            break;
+                        case SDLK_UP:
+            //UP
+                    //MAIN MENU
+                            if(accessMainMenu){
+                                    Mix_PlayChannel(1, menuSelection, 0);
+                                if(MBubY == newGameY){MBubY = exitGameY;MBubX = exitGameX-85;}
+                               else if(MBubY == levelsY){MBubY = newGameY;MBubX = newGameX-85;}
+                               else if(MBubY == exitGameY){MBubY = levelsY;MBubX = levelsX-85;}}
+                    //LEVEL 2
+                            if(accessLevel_2){
+                                charDir = UP; pressed = true;
+                            }
+                               break;
+                             case SDLK_w:
+            // W
+                    //MAIN MENU
+                            if(accessMainMenu){
+                                     Mix_PlayChannel(1, menuSelection, 0);
+                                if(MBubY == newGameY){MBubY = exitGameY;MBubX = exitGameX-85;}
+                               else if(MBubY == levelsY){MBubY = newGameY;MBubX = newGameX-85;}
+                               else if(MBubY == exitGameY){MBubY = levelsY;MBubX = levelsX-85;}}
+                    //LEVEL 2
+                            if(accessLevel_2){
+                                charDir = UP; pressed = true;
+                            }
+                            break;
+                        case SDLK_RETURN:
+        //ENTER
+                    //MAIN MENU
+                            if(accessMainMenu){Mix_PlayChannel(2, menuClick, 0);
+                                if(MBubY == levelsY){accessMainMenu = false; accessLevels = true;setPos = true; pressed = true; SDL_Delay(400);}
+                            if(MBubY == newGameY){accessMainMenu = false; accessLevel_1 = true; setPos = true; dir = STOP;charDir=STOP;SDL_Delay(400);}
+                            if(MBubY == exitGameY){quit = true;}
+                            }
+                    //SELECTION
+                            if(levelSelect&&!pressed){Mix_PlayChannel(2, menuClick, 0);
+                        if(selArowX == levSel1){accessLevel_1 = true;accessLevels = false;setPos = true;}
+                       else if(selArowX == levSel2){accessLevel_2 = true;accessLevels = false;setPos = true;}
+                       else if(selArowX == levSel3){accessLevel_3 = true;accessLevels = false;setPos = true;}
+
+                    }
+                            break;
+                        case SDLK_SPACE:
+        //SPACE
+                    //LEVEL 1
+                            if(accessLevel_1){
+                                if(strawberryX > cowX && strawberryX < cowX+cowW){if(strawberryY > cowY && strawberryY<cowY+cowH){
+                                Mix_PlayChannel(1, shootBerry, 0);}}
+
+                                if(dir == STOP){charDir = RIGHT;
+                                dir = UP;}else if(act == STILL){dir = UP;}
+                                }
+                            break;
+                        case SDLK_LEFT:
+        //LEFT
+                    //SELECTION
+                    if(accessLevels){
+                        if(selArowX == levSel1){selArowX = 495;Mix_PlayChannel(1, menuSelection, 0);}
+                        else if(selArowX == levSel2){selArowX = levSel1;Mix_PlayChannel(1, menuSelection, 0);}
+                        else if(selArowX == levSel3){selArowX = levSel2;Mix_PlayChannel(1, menuSelection, 0);}
+
+                    }
+
+                    //LEVEL 1
+                            if(accessLevel_1){if(win){
+                                charDir = LEFT; pressed = true;
+                            }}
+                    //LEVEL 2
+                            if(accessLevel_2){charDir = LEFT; pressed = true;}
+                    //LEVEL 3
+                            if(accessLevel_3){
+                                charDir = LEFT; pressed = true;
+                            }
+                            break;
+                        case SDLK_a:
+        // A
+                     //SELECTION
+                    if(accessLevels){
+                        if(selArowX == levSel1){selArowX = 495;Mix_PlayChannel(1, menuSelection, 0);}
+                        else if(selArowX == levSel2){selArowX = levSel1;Mix_PlayChannel(1, menuSelection, 0);}
+                        else if(selArowX == levSel3){selArowX = levSel2;Mix_PlayChannel(1, menuSelection, 0);}
+
+                    }
+                    //LEVEL 1
+                            if(accessLevel_1){if(win){
+                                charDir = LEFT; pressed = true;
+                            }}
+                    //LEVEL 2
+                            if(accessLevel_2){charDir = LEFT; pressed = true;}
+                    //LEVEL 3
+                            if(accessLevel_3){
+                                charDir = LEFT; pressed = true;}
+                            break;
+                        case SDLK_RIGHT:
+       //RIGHT
+                     //SELECTION
+                    if(accessLevels){
+                        if(selArowX == 95){selArowX = 302;Mix_PlayChannel(1, menuSelection, 0);}
+                       else if(selArowX == 302){selArowX = 495;Mix_PlayChannel(1, menuSelection, 0);}
+                       else if(selArowX == 495){selArowX = 95;Mix_PlayChannel(1, menuSelection, 0);}
+
+                    }
+                    //LEVEL 1
+                            if(accessLevel_1){if(win){charDir = RIGHT; pressed = true;}}
+                    //LEVEL 2
+                            if(accessLevel_2){charDir = RIGHT; pressed = true;}
+                    //LEVEL 3
+                            if(accessLevel_3){
+                                charDir = RIGHT; pressed = true;}
+                            break;
+                        case SDLK_d:
+        // D
+                    //SELECTION
+                    if(accessLevels){
+                        if(selArowX == levSel1){selArowX = levSel3;Mix_PlayChannel(1, menuSelection, 0);}
+                        else if(selArowX == levSel2){selArowX = levSel1;Mix_PlayChannel(1, menuSelection, 0);}
+                        else if(selArowX == levSel3){selArowX = levSel2;Mix_PlayChannel(1, menuSelection, 0);}
+
+                    }
+                    //LEVEL 1
+                            if(accessLevel_1){if(win){charDir = RIGHT; pressed = true;}}
+                    //LEVEL 2
+                            if(accessLevel_2){charDir = RIGHT; pressed = true;}
+                    //LEVEL 3
+                            if(accessLevel_3){
+                                charDir = RIGHT; pressed = true;}
+                            break;
+
+
+
+                        }//SWITCH
+                }//KEYDOWN
+
+
+                      else if(e.type == SDL_KEYUP){pressed = false;}
+
+ }//POLL EVENT
+
+ }// input()
+
+ void gameWin(){}
+
+
+int main(int argc, char* args[]){
+
+if(!init())
+{
+    printf("main initialization fail\n\n");
+}else{
+
+accessMainMenu = true;
+setPos = true;
+
+
+        if(!loadMedia())
+        {
+            printf("main mediaLoad fail\n\n");
+        }else{
+            while(!quit) {
+
+
+                input();
+
+
+                SDL_SetRenderDrawColor(renderer,0xFF,0xFF,0xFF,0xFF);
+                SDL_RenderClear(renderer);
+                    if(accessMainMenu){mainMenu();}
+                    if(accessLevels){levelSelect();}
+                    if(accessLevel_1){level_1();}
+                    if(accessLevel_2){level_2();}
+                    if(accessLevel_3){level_3();}
+
+                        SDL_RenderPresent(renderer);
+                       std::cout << score << std::endl;
+
+
+
+
+
+
+            }//main while
+
+        }//media else
+
+    }//init else
+
+
+
+close();
+return 0;
+}//main
+
+
+
+
+
+
+
+
+
+
